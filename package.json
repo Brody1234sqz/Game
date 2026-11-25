@@ -1,0 +1,13 @@
+{
+  "name": "sundown-circuit",
+  "version": "1.0.0",
+  "description": "An arcade pseudo-3D road racer for the browser. No dependencies, no build step.",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

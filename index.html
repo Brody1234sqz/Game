@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sundown Circuit</title>
+  <meta name="description" content="An arcade road racer: three circuits, eleven rivals, nitro, and a lap record to beat. Runs in any modern browser.">
+  <meta name="theme-color" content="#140c26">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main id="app" class="app">
+    <canvas id="view" class="view" aria-label="Race view"></canvas>
+
+    <button id="pause-btn" class="pause-btn" type="button" aria-label="Pause race" hidden>
+      <span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
+
+    <div id="touch" class="touch" hidden>
+      <div class="touch-pad touch-steer">
+        <button type="button" class="touch-btn" data-touch="left" aria-label="Steer left">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 7 12l8 8" /></svg>
+        </button>
+        <button type="button" class="touch-btn" data-touch="right" aria-label="Steer right">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 4 8 8-8 8" /></svg>
+        </button>
+      </div>
+      <div class="touch-pad touch-pedals">
+        <button type="button" class="touch-btn touch-nitro" data-touch="nitro">Nitro</button>
+        <button type="button" class="touch-btn touch-brake" data-touch="brake">Brake</button>
+        <button type="button" class="touch-btn touch-gas" data-touch="gas">Gas</button>
+      </div>
+    </div>
+
+    <!-- Title screen -->
+    <section id="menu" class="screen menu" aria-labelledby="logo">
+      <div class="menu-panel">
+        <header class="brand">
+          <p class="eyebrow">Arcade road racing</p>
+          <h1 id="logo" class="logo"><span>Sundown</span><span>Circuit</span></h1>
+          <p class="tagline">Twelve cars on the grid. You start last.</p>
+        </header>
+
+        <fieldset class="field">
+          <legend>Circuit</legend>
+          <div id="track-list" class="track-list"></div>
+        </fieldset>
+
+        <div class="field-row">
+          <fieldset class="field">
+            <legend>Rivals</legend>
+            <div class="segmented">
+              <input type="radio" name="difficulty" id="diff-easy" value="easy"><label for="diff-easy">Easy</label>
+              <input type="radio" name="difficulty" id="diff-normal" value="normal"><label for="diff-normal">Normal</label>
+              <input type="radio" name="difficulty" id="diff-hard" value="hard"><label for="diff-hard">Hard</label>
+            </div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>Laps</legend>
+            <div class="segmented">
+              <input type="radio" name="laps" id="laps-1" value="1"><label for="laps-1">1</label>
+              <input type="radio" name="laps" id="laps-3" value="3"><label for="laps-3">3</label>
+              <input type="radio" name="laps" id="laps-5" value="5"><label for="laps-5">5</label>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="field-row">
+          <fieldset class="field">
+            <legend>Speed</legend>
+            <div class="segmented">
+              <input type="radio" name="units" id="units-kmh" value="kmh"><label for="units-kmh">km/h</label>
+              <input type="radio" name="units" id="units-mph" value="mph"><label for="units-mph">mph</label>
+            </div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>Sound</legend>
+            <label class="switch" for="sound">
+              <input type="checkbox" id="sound" role="switch">
+              <span class="switch-track" aria-hidden="true"></span>
+              <span class="switch-label">Engine &amp; effects</span>
+            </label>
+          </fieldset>
+        </div>
+
+        <p id="record" class="record" aria-live="polite"></p>
+
+        <div class="start-bar">
+          <button id="start-btn" class="btn btn-primary" type="button">Start race</button>
+        </div>
+
+        <details class="controls">
+          <summary>Controls</summary>
+          <dl>
+            <div><dt>Steer</dt><dd><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd></dd></div>
+            <div><dt>Throttle</dt><dd><kbd>↑</kbd> or <kbd>W</kbd></dd></div>
+            <div><dt>Brake</dt><dd><kbd>↓</kbd> or <kbd>S</kbd></dd></div>
+            <div><dt>Nitro</dt><dd><kbd>Space</kbd> or <kbd>Shift</kbd></dd></div>
+            <div><dt>Pause</dt><dd><kbd>Esc</kbd> or <kbd>P</kbd></dd></div>
+            <div><dt>Mute</dt><dd><kbd>M</kbd></dd></div>
+            <div><dt>Gamepad</dt><dd>Stick steers, RT throttle, LT brake, A nitro</dd></div>
+          </dl>
+          <p class="hint">Nitro refills slowly, and faster every time you pass a car. Running wide onto the grass slows you down; trees and signs stop you dead.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- Pause -->
+    <section id="pause" class="screen overlay" aria-labelledby="pause-title" hidden>
+      <div class="card">
+        <h2 id="pause-title" class="card-title">Paused</h2>
+        <div class="stack">
+          <button id="resume-btn" class="btn btn-primary" type="button">Resume</button>
+          <button id="restart-btn" class="btn" type="button">Restart race</button>
+          <button id="sound-btn" class="btn" type="button" aria-pressed="true">Sound: on</button>
+          <button id="quit-btn" class="btn btn-quiet" type="button">Quit to menu</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results" class="screen overlay" aria-labelledby="result-title" hidden>
+      <div class="card card-wide">
+        <div class="result-head">
+          <p id="result-pos" class="result-pos">P1</p>
+          <div>
+            <h2 id="result-title" class="card-title">1st place</h2>
+            <p id="result-sub" class="result-sub"></p>
+          </div>
+        </div>
+        <div class="result-stats">
+          <div><span class="stat-label">Race time</span><span id="result-time" class="stat-value"></span></div>
+          <div><span class="stat-label">Best lap</span><span id="result-lap" class="stat-value"></span></div>
+        </div>
+        <p id="result-flags" class="result-flags"></p>
+        <div class="table-wrap">
+          <table class="standings">
+            <thead><tr><th scope="col">Pos</th><th scope="col">Driver</th><th scope="col" class="num">Time</th></tr></thead>
+            <tbody id="result-rows"></tbody>
+          </table>
+        </div>
+        <div class="row-buttons">
+          <button id="again-btn" class="btn btn-primary" type="button">Race again</button>
+          <button id="menu-btn" class="btn" type="button">Change circuit</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="rotate-hint">Turn your phone sideways for the full view.</p>
+  </main>
+
+  <script src="js/util.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/tracks.js"></script>
+  <script src="js/race.js"></script>
+  <script src="js/themes.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
