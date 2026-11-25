@@ -39,6 +39,7 @@
         if (!e.repeat) {
           if (code === 'Escape' || code === 'KeyP') this.actions.push('pause');
           else if (code === 'KeyM') this.actions.push('mute');
+          else if (code === 'KeyC') this.actions.push('camera');
         }
         this.keys.add(code);
       } else {
@@ -87,6 +88,7 @@
         const b = (i) => (pad.buttons[i] ? pad.buttons[i].value || (pad.buttons[i].pressed ? 1 : 0) : 0);
         const pressed = pad.buttons.map((btn) => btn.pressed);
         if (pressed[9] && !this.padButtons[9]) this.actions.push('pause');
+        if (pressed[3] && !this.padButtons[3]) this.actions.push('camera');
         this.padButtons = pressed;
         let ax = pad.axes[0] || 0;
         if (Math.abs(ax) < 0.15) ax = 0;

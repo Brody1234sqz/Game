@@ -10,15 +10,11 @@
   const MAX_SPEED = 12000; // world units per second at full throttle, no boost
 
   const CONFIG = {
-    // Road geometry and camera
+    // Road geometry
     segmentLength: 200,
     rumbleLength: 3,
     roadWidth: 2000,
     lanes: 3,
-    fieldOfView: 100,
-    cameraHeight: 1000,
-    drawDistance: 300,
-    fogDensity: 5,
 
     // Player physics
     maxSpeed: MAX_SPEED,
@@ -42,9 +38,9 @@
 
     // Cars
     carWidth: 760,
-    carLength: 260,
+    carLength: 760, // ≈ 4.6 m: the 3D car's length, nose to tail
     rivals: 11,
-    gridRowGap: 520,
+    gridRowGap: 1400, // ≈ 8.5 m between grid rows
     countdown: 3,
 
     // Rival AI
@@ -53,15 +49,10 @@
     rivalBrake: MAX_SPEED * 0.7,
     rubberBand: 0.05,
     lanesX: [-0.66, 0, 0.66],
-    lookAhead: 2400,
+    lookAhead: 4200, // how far ahead rivals watch for traffic (≈ 25 m)
 
     // Gearbox (top of each gear as a fraction of boosted top speed)
     gearTop: [0.2, 0.36, 0.52, 0.68, 0.84, 1.0],
-
-    // Background parallax rates
-    skySpeed: 0.001,
-    farSpeed: 0.002,
-    nearSpeed: 0.003,
 
     difficulties: {
       easy: { id: 'easy', label: 'Easy', min: 0.76, max: 0.9 },
@@ -75,8 +66,6 @@
     ],
   };
 
-  CONFIG.cameraDepth = 1 / Math.tan(((CONFIG.fieldOfView / 2) * Math.PI) / 180);
-  CONFIG.playerZ = CONFIG.cameraHeight * CONFIG.cameraDepth;
   CONFIG.metersPerUnit = CONFIG.topSpeedKmh / 3.6 / CONFIG.maxSpeed;
   CONFIG.carHalfWidth = CONFIG.carWidth / CONFIG.roadWidth; // car width in road half-widths
 

@@ -1,8 +1,8 @@
 /*
  * Sundown Circuit — application controller.
- * Owns the screens (menu, race, pause, results), settings and records,
- * and runs the frame loop that feeds input to the race and the race to the
- * renderer and audio.
+ * Owns the screens (menu, race, pause, results), settings and records, boots
+ * the 3D world once three.js has loaded, and runs the frame loop that feeds
+ * input to the race and the race to the world, HUD and audio.
  */
 (function () {
   'use strict';
@@ -16,6 +16,8 @@
   /* ---------------------------------------------------------------- */
 
   const STORE_KEY = 'sundown-circuit:v1';
+  const VIEWS = ['chase', 'near', 'hood'];
+  const VIEW_NAMES = { chase: 'Chase cam', near: 'Close cam', hood: 'Hood cam' };
 
   function loadStore() {
     try {
@@ -27,12 +29,18 @@
     }
   }
 
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
   const stored = loadStore();
-  const settings = Object.assign({ track: 'coast', difficulty: 'normal', laps: 3, units: 'kmh', sound: true }, stored.settings);
+  const settings = Object.assign(
+    { track: 'coast', difficulty: 'normal', laps: 3, units: 'kmh', sound: true, graphics: coarse ? 'performance' : 'quality', view: 'chase' },
+    stored.settings,
+  );
   if (!SC.TRACK_DEFS.some((d) => d.id === settings.track)) settings.track = 'coast';
   if (!C.difficulties[settings.difficulty]) settings.difficulty = 'normal';
   if (![1, 3, 5].includes(settings.laps)) settings.laps = 3;
   if (settings.units !== 'mph') settings.units = 'kmh';
+  if (settings.graphics !== 'performance') settings.graphics = 'quality';
+  if (!VIEWS.includes(settings.view)) settings.view = 'chase';
   settings.sound = settings.sound !== false;
   const records = stored.records && typeof stored.records === 'object' ? stored.records : {};
 
@@ -49,11 +57,11 @@
   /* ---------------------------------------------------------------- */
 
   const app = $('#app');
-  const canvas = $('#view');
-  const renderer = new SC.Renderer(canvas);
+  const hud = new SC.Hud($('#hud'));
   const audio = new SC.AudioFX();
   const input = new SC.Input();
   audio.setMuted(!settings.sound);
+  let world = null;
 
   const els = {
     menu: $('#menu'),
@@ -61,11 +69,14 @@
     results: $('#results'),
     touch: $('#touch'),
     pauseBtn: $('#pause-btn'),
+    viewBtn: $('#view-btn'),
     start: $('#start-btn'),
     trackList: $('#track-list'),
     record: $('#record'),
     sound: $('#sound'),
     soundBtn: $('#sound-btn'),
+    loading: $('#loading'),
+    loadingText: $('#loading-text'),
   };
 
   const tracks = new Map();
@@ -79,11 +90,8 @@
   let toasts = [];
   let finishDelay = 0;
   let pausedFrameDrawn = false;
-  let isTouch = window.matchMedia('(pointer: coarse)').matches;
-
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  renderer.reducedMotion = reduceMotion.matches;
-  if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', (e) => (renderer.reducedMotion = e.matches));
+  let busy = false;
+  let isTouch = coarse;
 
   /* ---------------------------------------------------------------- */
   /* Layout                                                           */
@@ -92,11 +100,10 @@
   function resize() {
     const w = Math.max(1, app.clientWidth);
     const h = Math.max(1, app.clientHeight);
-    let dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const budget = 2560 * 1440;
-    if (w * h * dpr * dpr > budget) dpr = Math.sqrt(budget / (w * h));
-    renderer.resize(w, h, dpr);
-    app.style.setProperty('--hud', String(renderer.hud / dpr));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    hud.resize(w, h, dpr);
+    if (world) world.resize(w, h);
+    app.style.setProperty('--hud', String(hud.hud / dpr));
     pausedFrameDrawn = false;
   }
 
@@ -111,6 +118,56 @@
   window.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'touch') setTouch(true);
   });
+
+  /* ---------------------------------------------------------------- */
+  /* Loading                                                          */
+  /* ---------------------------------------------------------------- */
+
+  function showLoading(text) {
+    els.loadingText.textContent = text;
+    els.loading.hidden = false;
+    els.loading.classList.remove('is-error');
+  }
+
+  function hideLoading() {
+    els.loading.hidden = true;
+  }
+
+  function showError(text) {
+    els.loadingText.textContent = text;
+    els.loading.hidden = false;
+    els.loading.classList.add('is-error');
+  }
+
+  /** Let the browser paint (e.g. a loading message) before blocking work. */
+  const nextPaint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+
+  /** Build (or reuse) the 3D circuit, showing a message if it takes a moment. */
+  async function prepareTrack(id) {
+    const track = getTrack(id);
+    if (!world.hasTrack(id)) {
+      showLoading(`Building ${track.name}…`);
+      await nextPaint();
+    }
+    world.setTrack(track);
+    hideLoading();
+    return track;
+  }
+
+  function createWorld() {
+    const old = $('#view');
+    const canvas = document.createElement('canvas');
+    canvas.id = 'view';
+    canvas.className = 'view';
+    canvas.setAttribute('aria-label', 'Race view');
+    if (world) {
+      world.renderer.dispose();
+      world.renderer.forceContextLoss();
+    }
+    old.replaceWith(canvas);
+    world = new SC.World(canvas, { quality: settings.graphics });
+    resize();
+  }
 
   /* ---------------------------------------------------------------- */
   /* Menu                                                             */
@@ -187,7 +244,7 @@
     });
   }
 
-  function bindRadios(name, key, parse) {
+  function bindRadios(name, key, parse, onChange) {
     document.querySelectorAll(`input[name="${name}"]`).forEach((el) => {
       el.checked = String(settings[key]) === el.value;
       el.addEventListener('change', () => {
@@ -195,6 +252,7 @@
         settings[key] = parse ? parse(el.value) : el.value;
         saveStore();
         updateRecordLine();
+        if (onChange) onChange();
       });
     });
   }
@@ -208,6 +266,24 @@
     saveStore();
   }
 
+  function cycleView() {
+    settings.view = VIEWS[(VIEWS.indexOf(settings.view) + 1) % VIEWS.length];
+    saveStore();
+    const radio = document.querySelector(`input[name="view"][value="${settings.view}"]`);
+    if (radio) radio.checked = true;
+    if (mode === 'race') toast({ kind: 'small', text: VIEW_NAMES[settings.view], dur: 1.2, color: SC.HUD_COLORS.text });
+  }
+
+  async function changeGraphics() {
+    if (!world || busy) return;
+    busy = true;
+    showLoading('Applying graphics settings…');
+    await nextPaint();
+    createWorld();
+    busy = false;
+    await startDemo();
+  }
+
   /* ---------------------------------------------------------------- */
   /* Screens                                                          */
   /* ---------------------------------------------------------------- */
@@ -218,6 +294,7 @@
     els.results.hidden = screen !== 'results';
     const racing = mode === 'race' || mode === 'paused';
     els.pauseBtn.hidden = mode !== 'race';
+    els.viewBtn.hidden = mode !== 'race';
     els.touch.hidden = !(isTouch && mode === 'race');
     app.classList.toggle('is-racing', racing);
   }
@@ -226,11 +303,12 @@
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   }
 
-  function startDemo() {
-    const track = getTrack(settings.track);
-    renderer.setTheme(track.theme);
+  async function startDemo() {
+    if (!world) return;
+    const track = await prepareTrack(settings.track);
+    if (mode !== 'menu') return;
     race = new SC.Race(track, { demo: true, seed: 11 });
-    for (let i = 0; i < 120 * 5; i++) race.update(1 / 120);
+    for (let i = 0; i < 120 * 6; i++) race.update(1 / 120);
     race.events.length = 0;
   }
 
@@ -246,13 +324,13 @@
     els.start.focus({ preventScroll: true });
   }
 
-  function startRace() {
-    if (mode === 'boot') return;
+  async function startRace() {
+    if (mode === 'boot' || busy || !world) return;
+    busy = true;
     audio.unlock();
     audio.setPaused(false);
     audio.play('click');
-    const track = getTrack(settings.track);
-    renderer.setTheme(track.theme);
+    const track = await prepareTrack(settings.track);
     race = new SC.Race(track, { laps: settings.laps, difficulty: settings.difficulty });
     mode = 'race';
     toasts = [];
@@ -261,6 +339,7 @@
     input.capture = true;
     showOnly(null);
     blurActive();
+    busy = false;
   }
 
   function pauseGame() {
@@ -348,6 +427,7 @@
 
   function toast(t) {
     if (t.kind !== 'small') toasts = toasts.filter((x) => x.kind === 'small');
+    else toasts = toasts.filter((x) => x.kind !== 'small');
     toasts.push(Object.assign({ age: 0, dur: 2 }, t));
   }
 
@@ -426,7 +506,8 @@
 
   function frame(now) {
     requestAnimationFrame(frame);
-    const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
+    const frameDt = Math.max(0, (now - last) / 1000);
+    const dt = Math.min(0.1, frameDt);
     last = now;
 
     for (const a of input.consumeActions()) {
@@ -435,10 +516,12 @@
         else if (mode === 'paused') resumeGame();
       } else if (a === 'mute') {
         setSound(!settings.sound);
+      } else if (a === 'camera' && (mode === 'race' || mode === 'menu')) {
+        cycleView();
       }
     }
 
-    if (!race) return;
+    if (!race || !world || busy) return;
     const running = mode === 'menu' || mode === 'race' || mode === 'results';
     if (running) {
       const inp = mode === 'race' ? input.read() : SC.NEUTRAL_INPUT;
@@ -470,9 +553,10 @@
       nitro: p.nitroActive,
     });
 
-    renderer.render(race, {
+    const camera = mode === 'race' || mode === 'paused' ? (race.state === 'finished' ? 'tv' : settings.view) : 'tv';
+    world.render(race, { dt: running ? dt : 0, frameDt: running ? frameDt : 0, camera });
+    hud.render(race, {
       hud: mode === 'race' || mode === 'paused',
-      dt: running ? dt : 0,
       units: settings.units,
       touch: isTouch,
       toasts,
@@ -488,12 +572,15 @@
     bindRadios('difficulty', 'difficulty');
     bindRadios('laps', 'laps', (v) => parseInt(v, 10));
     bindRadios('units', 'units');
+    bindRadios('graphics', 'graphics', null, changeGraphics);
+    bindRadios('view', 'view');
     els.sound.checked = settings.sound;
     els.sound.addEventListener('change', () => setSound(els.sound.checked));
     setSound(settings.sound);
 
     els.start.addEventListener('click', startRace);
     els.pauseBtn.addEventListener('click', pauseGame);
+    els.viewBtn.addEventListener('click', cycleView);
     $('#resume-btn').addEventListener('click', resumeGame);
     $('#restart-btn').addEventListener('click', startRace);
     $('#quit-btn').addEventListener('click', showMenu);
@@ -522,12 +609,49 @@
     });
   }
 
-  function boot() {
+  /** Resolves once the three.js bootstrap module has loaded the engine. */
+  function threeReady() {
+    return new Promise((resolve, reject) => {
+      if (globalThis.THREE && globalThis.THREE.addons) return resolve(globalThis.THREE);
+      if (globalThis.SC_THREE_ERROR) return reject(globalThis.SC_THREE_ERROR);
+      const timer = setTimeout(() => reject(new Error('timeout')), 30000);
+      window.addEventListener('sc:three-ready', () => {
+        clearTimeout(timer);
+        resolve(globalThis.THREE);
+      }, { once: true });
+      window.addEventListener('sc:three-failed', (e) => {
+        clearTimeout(timer);
+        reject(e.detail);
+      }, { once: true });
+    });
+  }
+
+  async function boot() {
     resize();
     wire();
     buildTrackList();
     mode = 'menu';
-    showMenu();
+    showOnly('menu');
+    updateRecordLine();
+    els.start.disabled = true;
+    showLoading('Loading 3D engine…');
+    let THREE;
+    try {
+      THREE = await threeReady();
+    } catch (err) {
+      showError('The 3D engine could not load. Check your internet connection, then reload the page.');
+      return;
+    }
+    for (const init of SC.threeInit) init(THREE);
+    try {
+      createWorld();
+    } catch (err) {
+      showError('This browser could not start WebGL, which the game needs. Try an up-to-date Chrome, Edge, Firefox or Safari.');
+      return;
+    }
+    await startDemo();
+    els.start.disabled = false;
+    els.start.focus({ preventScroll: true });
     requestAnimationFrame((t) => {
       last = t;
       frame(t);

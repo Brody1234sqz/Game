@@ -1,12 +1,12 @@
 # Sundown Circuit
 
-An arcade road racer that runs in any modern browser. Three circuits, eleven AI rivals, nitro, lap records, and a synthesized engine. It uses plain HTML5 Canvas and JavaScript with no dependencies and no build step. Every car, tree, billboard and skyline is drawn in code, so there are no image or audio files.
+A 3D arcade road racer that runs in any modern browser. It has three circuits, eleven AI rivals, nitro, lap records and a synthesized engine. The game is written in plain JavaScript on top of [three.js](https://threejs.org) (WebGL) and needs no build step.
+
+Every model, texture and sound is generated in code: the cars, palms, pines, grandstands, city blocks, asphalt, kerbs, clouds and stars. The repository has no image, model or audio files.
 
 ## Play
 
-Open `index.html` in a browser. It works straight from the file system.
-
-To serve it locally instead:
+Open `index.html` in a browser. three.js loads from the jsDelivr CDN, so the first load needs an internet connection. The page works straight from the file system or from any static web server:
 
 ```sh
 npm start          # python3 -m http.server 8080, then open http://localhost:8080
@@ -14,56 +14,74 @@ npm start          # python3 -m http.server 8080, then open http://localhost:808
 
 ### Controls
 
-| Action   | Keyboard              | Gamepad          | Touch        |
-| -------- | --------------------- | ---------------- | ------------ |
-| Steer    | ← → or A D            | Left stick, d-pad | ◀ ▶ buttons |
-| Throttle | ↑ or W                | RT               | Gas          |
-| Brake    | ↓ or S                | LT               | Brake        |
-| Nitro    | Space or Shift        | A or RB          | Nitro        |
-| Pause    | Esc or P              | Start            | ❚❚ button    |
-| Mute     | M                     |                  |              |
+| Action   | Keyboard          | Gamepad           | Touch        |
+| -------- | ----------------- | ----------------- | ------------ |
+| Steer    | ← → or A D        | Left stick, d-pad | ◀ ▶ buttons  |
+| Throttle | ↑ or W            | RT                | Gas          |
+| Brake    | ↓ or S            | LT                | Brake        |
+| Nitro    | Space or Shift    | A or RB           | Nitro        |
+| Camera   | C                 | Y                 | Camera button |
+| Pause    | Esc or P          | Start             | ❚❚ button    |
+| Mute     | M                 |                   |              |
 
-On the menu, Enter starts a race.
+On the menu, Enter starts a race. The camera cycles between chase, close and hood views. The menu and results screens use a trackside TV-style camera.
 
 ### How a race works
 
-- You start last on a 12-car grid behind the start line. The lights count down 3–2–1, then it's GO.
+- You start last on a 12-car grid behind the start line. The gantry lights count down 3–2–1, then it's GO.
 - **Nitro** gives up to 30% more top speed. The tank refills slowly on its own and gets a boost every time you pass a car.
-- **Bends** push you wide. Take the hard bends and hairpins flat out with nitro and you will run onto the grass, which caps your speed. Trees, signs and buildings stop you dead.
+- **Bends** push you wide. Take the hard bends and hairpins flat out on nitro and you'll run onto the grass, which caps your speed. Trees, signs and buildings stop you dead.
 - **Rivals** start in qualifying order (fastest at the front), change lanes to get past traffic, and slow down for hairpins. You can block them. The difficulty setting picks how fast they are.
 - Lap and race records are saved per circuit in your browser.
 
 ### Circuits
 
-| Circuit    | Length  | Character                                       |
-| ---------- | ------- | ----------------------------------------------- |
-| Coastline  | 2.73 km | Golden hour. Fast seaside sweepers and a chicane run. |
-| Pine Ridge | 2.31 km | Alpine noon. Steep climbs, blind crests, two hairpins. |
-| Neon Night | 2.50 km | Midnight downtown. Long straights under street lamps. |
+| Circuit    | Length  | Setting |
+| ---------- | ------- | ------- |
+| Coastline  | 2.73 km | Golden hour by the sea. Palm-lined sweepers, beach huts, sea stacks offshore. |
+| Pine Ridge | 2.31 km | Alpine noon. Steep climbs, blind crests, two hairpins, forests below snowy peaks. |
+| Neon Night | 2.50 km | Midnight downtown. Lit office towers, neon signs and street lights that pool on the road. |
+
+### Graphics
+
+- **Quality** (the default on desktop) renders at up to 2× pixel density with 4× MSAA, 2048 px sun shadows, speed blur and full scenery density.
+- **Fast** (the default on phones and tablets) uses 1× density, 1024 px shadows and about half the background scenery.
+
+Both modes scale the render resolution up and down to hold the frame rate.
+
+The look comes from physically based materials (clearcoat car paint, glass, chrome, asphalt with normal and roughness maps), a sky that scatters light by the sun's position and lights the scene with reflections, soft shadows from the sun, exponential fog, HDR bloom, ACES filmic tone mapping, and a colour grade, vignette and radial speed blur.
 
 ## Project layout
 
 ```
-index.html        Page shell, menus and overlays
+index.html        Page shell, menus, three.js import map and loader
 css/style.css     Interface styles
 js/util.js        Math, formatting, seeded RNG (pure)
-js/config.js      All tuning constants: physics, AI, difficulty, scenery sizes
+js/config.js      Tuning constants: physics, AI, difficulty, scenery sizes
 js/tracks.js      Track builder, the three circuit layouts, scenery placement, minimap outline
 js/race.js        Simulation: player physics, rival AI, collisions, laps, standings, autopilot
-js/themes.js      Colour palettes per circuit
-js/art.js         Procedural art: cars, scenery, parallax backgrounds, menu thumbnails
-js/renderer.js    Pseudo-3D road renderer and the HUD
+js/centerline.js  Turns a track's bends and hills into a closed 3D centreline in metres (pure)
+js/themes.js      Palettes per circuit
+js/art.js         2D artwork: billboard designs and menu thumbnails
+js/textures.js    Procedural PBR textures, plus the noise functions the terrain uses
+js/models.js      Procedural 3D models: the lofted sports car and all the scenery
+js/world.js       WebGL world: road, terrain, sea, sky, lighting, cameras, post-processing
+js/hud.js         Heads-up display on a 2D overlay canvas
 js/audio.js       Web Audio engine, tyre, wind and effect sounds
 js/input.js       Keyboard, touch and gamepad input
-js/main.js        App controller: screens, settings, records, frame loop
-tests/            Headless Node tests for the simulation
+js/main.js        App controller: screens, settings, records, loading, frame loop
+tests/            Headless Node tests for the simulation and the 3D geometry
 ```
 
-The simulation files (`util`, `config`, `tracks`, `race`) never touch the DOM, so the tests can drive whole races in Node.
+The simulation files (`util`, `config`, `tracks`, `race`, `centerline`) never touch the DOM or WebGL, so the tests can drive whole races in Node.
 
-### Rendering in brief
+### How the world is built
 
-The road is a loop of short segments. Each one stores a curve value and a height. Every frame the renderer projects about 300 segments ahead of the camera, accumulating curve into a sideways offset so the road bends. It paints them back to front so nearer road covers farther road, then draws scenery and cars back to front, clipped behind hill crests. Fog blends distant colours into the horizon. The simulation runs in fixed 1/120 s steps regardless of the display's refresh rate.
+The race runs on a loop of short road segments, each with a bend value and a height. `centerline.js` integrates the bends into headings, scaled so the lap turns exactly 360°, and spreads any small closing gap around the lap. The result is a real 3D path in metres. The scales match the physics: the road is 10.5 m wide (three 3.5 m lanes), a car is 2 m wide, and 262 km/h on the speedometer is 72.8 m/s past the scenery.
+
+`world.js` lays the road, kerbs, verges and guardrails along that path. It shapes a terrain heightfield around it: flat beside the road, rising into hills or mountains or dropping to the sea further out. Every object the physics knows about (each tree, sign and grandstand you can crash into) is placed exactly where its hitbox is. Thousands more background objects are scattered beyond, drawn as instanced meshes in spatial chunks so off-screen ones are culled.
+
+Each frame, the cars are posed from the simulation: position, heading, drift angle, body roll and pitch, wheel spin and steering. The sun's shadow box follows the player, snapped to shadow-map texels to avoid shimmer. At night a small pool of spotlights jumps to the street lamps nearest the player.
 
 ## Tests
 
@@ -71,15 +89,17 @@ The road is a loop of short segments. Each one stores a curve value and a height
 npm test           # node --test, Node 18 or newer
 ```
 
-The suite checks that every circuit closes seamlessly (height and curve), that no solid scenery stands on the tarmac, and that the minimap outline closes. It drives full 3-lap races with the autopilot to check lap timing, results ordering and the finish. It also checks deterministic replays, that harder rivals beat a cautious driver more often, crash handling, and nitro behaviour.
+The suite checks track integrity and closure, that no solid scenery stands on the tarmac, and the minimap outline. It drives full 3-lap races with the autopilot to check lap timing, results ordering and the finish. It also checks deterministic replays, difficulty, crashes and nitro. For the 3D centreline, it checks that the loop closes, never crosses itself, keeps grades drivable, and puts lateral offsets in metres.
 
 ## Tuning
 
-Almost everything lives in `js/config.js`:
+Almost everything about how the game plays lives in `js/config.js`:
 
 - `maxSpeed`, `accel`, `braking`, `centrifugal`, `steerRate`: how the car drives
 - `nitroBoost`, `nitroDrain`, `nitroRecharge`, `nitroPerOvertake`: the boost economy
 - `difficulties`: rival speed ranges for Easy, Normal and Hard
 - `rubberBand`: how much rivals ease off when far ahead (or push when far behind)
 
-New circuits are a `layout(builder)` plus a `scenery(track, rnd)` function in `js/tracks.js`, and a palette in `js/themes.js`.
+Lighting, fog, bloom and colour grade per circuit are in the `LOOK` table at the top of `js/world.js`. Quality presets are in `QUALITY` next to it.
+
+New circuits are a `layout(builder)` plus a `scenery(track, rnd)` function in `js/tracks.js`, a palette in `js/themes.js` and a `LOOK` entry in `js/world.js`.

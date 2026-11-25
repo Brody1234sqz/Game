@@ -63,6 +63,64 @@ body {
   background: var(--ink);
 }
 
+.hud {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.loading {
+  position: absolute;
+  z-index: 30;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: min(26rem, calc(100% - 32px));
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(14, 9, 28, 0.88);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.loading-bar {
+  flex: none;
+  width: 2.4rem;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--sun), transparent) 0 0 / 200% 100%, rgba(255, 255, 255, 0.12);
+  animation: loading-sweep 1.1s linear infinite;
+}
+
+.loading.is-error {
+  border-radius: var(--radius);
+  border-color: var(--rose);
+}
+
+.loading.is-error .loading-bar {
+  display: none;
+}
+
+@keyframes loading-sweep {
+  from {
+    background-position: 100% 0, 0 0;
+  }
+  to {
+    background-position: -100% 0, 0 0;
+  }
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
 /* Buttons ---------------------------------------------------------------- */
 
 .btn {
@@ -687,6 +745,32 @@ kbd {
   background: var(--text);
 }
 
+.view-btn {
+  position: absolute;
+  z-index: 5;
+  top: max(14px, env(safe-area-inset-top, 0px));
+  right: calc(max(14px, env(safe-area-inset-right, 0px)) + 56px);
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(14, 9, 28, 0.62);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.view-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.view-btn:focus-visible,
 .pause-btn:focus-visible {
   outline: 2px solid var(--flare);
   outline-offset: 2px;
@@ -697,8 +781,7 @@ kbd {
   .pause-btn {
     top: calc(var(--hud, 1) * 102px);
     right: auto;
-    left: 50%;
-    transform: translateX(-50%);
+    left: calc(50% - 42px);
     width: 38px;
     height: 38px;
     gap: 5px;
@@ -707,6 +790,19 @@ kbd {
   .pause-btn span {
     width: 4px;
     height: 13px;
+  }
+
+  .view-btn {
+    top: calc(var(--hud, 1) * 102px);
+    right: auto;
+    left: calc(50% + 4px);
+    width: 38px;
+    height: 38px;
+  }
+
+  .view-btn svg {
+    width: 18px;
+    height: 18px;
   }
 }
 

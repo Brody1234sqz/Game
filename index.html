@@ -4,19 +4,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Sundown Circuit</title>
-  <meta name="description" content="An arcade road racer: three circuits, eleven rivals, nitro, and a lap record to beat. Runs in any modern browser.">
+  <meta name="description" content="A 3D arcade road racer: three circuits, eleven rivals, nitro, and a lap record to beat. Runs in any modern browser.">
   <meta name="theme-color" content="#140c26">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/style.css">
+  <!-- three.js (WebGL engine), pinned, from the jsDelivr CDN -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
   <main id="app" class="app">
     <canvas id="view" class="view" aria-label="Race view"></canvas>
+    <canvas id="hud" class="hud" aria-hidden="true"></canvas>
+
+    <div id="loading" class="loading" role="status" aria-live="polite" hidden>
+      <span class="loading-bar" aria-hidden="true"></span>
+      <span id="loading-text">Loading…</span>
+    </div>
 
     <button id="pause-btn" class="pause-btn" type="button" aria-label="Pause race" hidden>
       <span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
+    <button id="view-btn" class="view-btn" type="button" aria-label="Change camera" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h3l2-3h8l2 3h3v11H3z" /><circle cx="12" cy="13" r="3.5" /></svg>
     </button>
 
     <div id="touch" class="touch" hidden>
@@ -86,6 +104,24 @@
           </fieldset>
         </div>
 
+        <div class="field-row">
+          <fieldset class="field">
+            <legend>Graphics</legend>
+            <div class="segmented">
+              <input type="radio" name="graphics" id="gfx-quality" value="quality"><label for="gfx-quality">Quality</label>
+              <input type="radio" name="graphics" id="gfx-performance" value="performance"><label for="gfx-performance">Fast</label>
+            </div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>Camera</legend>
+            <div class="segmented">
+              <input type="radio" name="view" id="view-chase" value="chase"><label for="view-chase">Chase</label>
+              <input type="radio" name="view" id="view-near" value="near"><label for="view-near">Close</label>
+              <input type="radio" name="view" id="view-hood" value="hood"><label for="view-hood">Hood</label>
+            </div>
+          </fieldset>
+        </div>
+
         <p id="record" class="record" aria-live="polite"></p>
 
         <div class="start-bar">
@@ -99,9 +135,10 @@
             <div><dt>Throttle</dt><dd><kbd>↑</kbd> or <kbd>W</kbd></dd></div>
             <div><dt>Brake</dt><dd><kbd>↓</kbd> or <kbd>S</kbd></dd></div>
             <div><dt>Nitro</dt><dd><kbd>Space</kbd> or <kbd>Shift</kbd></dd></div>
+            <div><dt>Camera</dt><dd><kbd>C</kbd></dd></div>
             <div><dt>Pause</dt><dd><kbd>Esc</kbd> or <kbd>P</kbd></dd></div>
             <div><dt>Mute</dt><dd><kbd>M</kbd></dd></div>
-            <div><dt>Gamepad</dt><dd>Stick steers, RT throttle, LT brake, A nitro</dd></div>
+            <div><dt>Gamepad</dt><dd>Stick steers, RT throttle, LT brake, A nitro, Y camera</dd></div>
           </dl>
           <p class="hint">Nitro refills slowly, and faster every time you pass a car. Running wide onto the grass slows you down; trees and signs stop you dead.</p>
         </details>
@@ -156,11 +193,43 @@
   <script src="js/config.js"></script>
   <script src="js/tracks.js"></script>
   <script src="js/race.js"></script>
+  <script src="js/centerline.js"></script>
   <script src="js/themes.js"></script>
   <script src="js/art.js"></script>
-  <script src="js/renderer.js"></script>
+  <script src="js/textures.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/hud.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/input.js"></script>
   <script src="js/main.js"></script>
+  <!-- Load three.js and hand it to the classic scripts above. -->
+  <script type="module">
+    try {
+      const [THREE, sky, composer, render, bloom, shader, output] = await Promise.all([
+        import('three'),
+        import('three/addons/objects/Sky.js'),
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/UnrealBloomPass.js'),
+        import('three/addons/postprocessing/ShaderPass.js'),
+        import('three/addons/postprocessing/OutputPass.js'),
+      ]);
+      window.THREE = Object.assign({}, THREE, {
+        addons: {
+          Sky: sky.Sky,
+          EffectComposer: composer.EffectComposer,
+          RenderPass: render.RenderPass,
+          UnrealBloomPass: bloom.UnrealBloomPass,
+          ShaderPass: shader.ShaderPass,
+          OutputPass: output.OutputPass,
+        },
+      });
+      window.dispatchEvent(new Event('sc:three-ready'));
+    } catch (err) {
+      window.SC_THREE_ERROR = err;
+      window.dispatchEvent(new CustomEvent('sc:three-failed', { detail: err }));
+    }
+  </script>
 </body>
 </html>

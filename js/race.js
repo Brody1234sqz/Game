@@ -29,7 +29,6 @@
       this.countdown = this.demo ? 0 : C.countdown;
       this.time = 0;
       this.events = [];
-      this.view = { sky: 0, far: 0, near: 0 };
       this.shake = 0;
       this.finishOrder = [];
       this.segCount = track.segments.length;
@@ -342,11 +341,6 @@
       // Advance
       const dz = p.speed * dt;
       this.moveEntity(p, dz);
-      const v = this.view;
-      const turn = (seg0.curve * dz) / C.segmentLength;
-      v.sky = U.wrap(v.sky + C.skySpeed * turn, 1);
-      v.far = U.wrap(v.far + C.farSpeed * turn, 1);
-      v.near = U.wrap(v.near + C.nearSpeed * turn, 1);
 
       // Collisions
       const seg = track.findSegment(p.z);
@@ -479,7 +473,7 @@
       for (const o of this.entities) {
         if (o === e) continue;
         const d = U.loopDelta(e.z, o.z, L);
-        if (d < -700 || d > C.lookAhead + 200) continue;
+        if (d < -C.carLength * 1.7 || d > C.lookAhead + 200) continue;
         if (Math.abs(o.x - lane) < 0.45) return false;
         if (!o.isPlayer && Math.abs(o.targetX - lane) < 0.45) return false;
       }
@@ -521,7 +515,7 @@
             moved = true;
           }
         }
-        if (!moved && block.d < 1400) target = Math.min(target, block.e.speed * (block.d < 500 ? 0.9 : 0.99));
+        if (!moved && block.d < C.carLength * 3.4) target = Math.min(target, block.e.speed * (block.d < C.carLength * 1.5 ? 0.9 : 0.99));
       } else if (car.laneTimer < -6 && this.rnd() < dt * 0.2) {
         const lane = this.pickLane(car);
         if (lane !== null) {
@@ -571,9 +565,9 @@
       const safe = maxCurve > 0 ? (0.85 * C.steerRate) / (2 * maxCurve * C.centrifugal) : 2;
       const cruise = this.state === 'finished' ? 0.72 : 2;
       const limit = Math.min(safe, cruise);
-      const close = block && block.d < 900 && block.e.speed < p.speed;
+      const close = block && block.d < C.carLength * 2.4 && block.e.speed < p.speed;
       const throttle = sp < limit && !close ? 1 : 0;
-      const brake = sp > limit + 0.08 || (block && block.d < 450 && block.e.speed < p.speed * 0.9) ? 1 : 0;
+      const brake = sp > limit + 0.08 || (block && block.d < C.carLength * 1.4 && block.e.speed < p.speed * 0.9) ? 1 : 0;
       const nitro = this.state === 'racing' && !this.demo && this.maxCurveAhead(p.z, 70, 5) < 3.5 && sp > 0.75 && !block;
       return { steer, throttle, brake, nitro };
     }

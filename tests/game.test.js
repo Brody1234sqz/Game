@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-for (const f of ['util', 'config', 'tracks', 'race']) require(path.join(__dirname, '..', 'js', f + '.js'));
+for (const f of ['util', 'config', 'tracks', 'race', 'centerline']) require(path.join(__dirname, '..', 'js', f + '.js'));
 const SC = globalThis.SC;
 const U = SC.util;
 const C = SC.CONFIG;
@@ -183,4 +183,40 @@ test('nitro raises top speed and drains, then recharges', () => {
   const before = race.player.nitro;
   for (let i = 0; i < 120; i++) race.update(1 / 120, drive(false));
   assert.ok(race.player.nitro > before);
+});
+
+/* ------------------------------------------------------------------ */
+/* 3D centreline used by the WebGL world                               */
+/* ------------------------------------------------------------------ */
+
+for (const track of tracks) {
+  test(`${track.name}: 3D centreline closes, never crosses itself and stays drivable`, () => {
+    const line = SC.centerline.build(track);
+    const kmFromSim = track.lengthKm;
+    assert.ok(Math.abs(line.length / 1000 - kmFromSim) < 1e-6, 'world length matches the simulation');
+    // closed loop: the last step lands back on the first point
+    const step = Math.hypot(line.px[line.n] - line.px[line.n - 1], line.pz[line.n] - line.pz[line.n - 1]);
+    assert.ok(step < line.segLen * 1.5, `closing step ${step}`);
+    for (let i = 0; i <= line.n; i++) {
+      for (const a of [line.px, line.py, line.pz, line.fx, line.fz]) assert.ok(Number.isFinite(a[i]));
+      assert.ok(Math.abs(Math.hypot(line.fx[i], line.fz[i]) - 1) < 1e-9, 'unit tangent');
+    }
+    const far = SC.centerline.closestApproach(line, 150);
+    assert.ok(far.distance > 60, `separate stretches of road come within ${far.distance.toFixed(1)} m`);
+    let grade = 0;
+    for (let i = 0; i < line.n; i++) grade = Math.max(grade, Math.abs(line.py[i + 1] - line.py[i]) / line.segLen);
+    assert.ok(grade < 0.35, `steepest grade ${(grade * 100).toFixed(1)}%`);
+  });
+}
+
+test('centreline sampling puts lateral offsets in metres across the road', () => {
+  const line = SC.centerline.build(tracks[0]);
+  const a = SC.centerline.sample(line, 12345, 0, {});
+  const b = SC.centerline.sample(line, 12345, 1, {});
+  assert.ok(Math.abs(Math.hypot(b.x - a.x, b.z - a.z) - SC.WORLD_SCALE.lat) < 1e-6, 'x = 1 is one road half-width away');
+  // the right-hand vector is perpendicular to the direction of travel
+  assert.ok(Math.abs(a.fx * a.rx + a.fz * a.rz) < 1e-9);
+  // wrapping: z and z + one lap give the same point
+  const c = SC.centerline.sample(line, 12345 + tracks[0].length, 0, {});
+  assert.ok(Math.hypot(c.x - a.x, c.z - a.z) < 1e-6);
 });
