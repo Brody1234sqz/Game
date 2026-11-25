@@ -38,8 +38,8 @@
     /* ---------------------------------------------------------------- */
 
     const QUALITY = {
-      quality: { maxRatio: 2, minRatio: 0.65, msaa: 4, shadow: 2048, shadowRange: 60, blur: true, dressing: 1 },
-      performance: { maxRatio: 1, minRatio: 0.55, msaa: 0, shadow: 1024, shadowRange: 45, blur: false, dressing: 0.45 },
+      quality: { maxRatio: 2, minRatio: 0.65, msaa: 4, shadow: 4096, shadowRange: 60, blur: true, dressing: 1, reflections: true },
+      performance: { maxRatio: 1, minRatio: 0.55, msaa: 0, shadow: 1024, shadowRange: 45, blur: false, dressing: 0.45, reflections: false },
     };
 
     /** Lighting, atmosphere and ground for each circuit. */
@@ -212,6 +212,7 @@
         this.scenery = M.createScenery(this.tex);
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(60, 1, 0.25, 6000);
+        this.camera.layers.enable(SC.cars.DETAIL_LAYER); // the player sees every car detail
         this.pmrem = new THREE.PMREMGenerator(r);
         this.envs = new Map();
         this.tracks = new Map();
@@ -346,9 +347,11 @@
           return l;
         });
 
-        // A varied field: three body styles, wheel finishes and brake colours.
+        // A varied field: three body styles, wheel finishes, brake colours and helmets.
         const styles = ['gt', 'muscle', 'super'];
         const rims = ['silver', 'black', 'gunmetal', 'bronze'];
+        const helmets = [0xf1f1ee, 0xe0a800, 0x1b4d96, 0xa50f17, 0x222327, 0x0f553a];
+        const suits = [0x24262b, 0x5a0d12, 0x14284d, 0x2b2b30, 0x3d3f45];
         this.rivalCars = [];
         for (let i = 0; i < C.rivals; i++) {
           const ci = i % SC.art.CAR_COLORS.length;
@@ -359,10 +362,38 @@
             rim: rims[i % rims.length],
             caliper: SC.cars.CALIPERS[(i * 7) % SC.cars.CALIPERS.length],
             wing: i % 2 === 0,
+            helmet: helmets[i % helmets.length],
+            suit: suits[(i * 3) % suits.length],
           });
           this.scene.add(car.root);
           this.rivalCars.push(car);
         }
+
+        // Live reflections: a cube camera at the player's car captures the
+        // surroundings a few times a second; every car reflects it.
+        if (this.q.reflections) {
+          this.cubeTarget = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType });
+          this.cubeCam = new THREE.CubeCamera(0.4, 5200, this.cubeTarget);
+          for (const car of [this.playerCar, ...this.rivalCars]) car.setEnv(this.cubeTarget.texture);
+        }
+        this.reflectFrame = 0;
+        this.lastGear = 1;
+      }
+
+      /** Re-capture the reflection cube around the player's car. */
+      updateReflections() {
+        if (!this.cubeCam) return;
+        if (this.reflectFrame++ % 4 !== 0) return;
+        const car = this.playerCar.root;
+        this.cubeCam.position.set(car.position.x, car.position.y + 1.0, car.position.z);
+        this.cubeCam.updateMatrixWorld();
+        car.visible = false;
+        const shadows = this.renderer.shadowMap.autoUpdate;
+        this.renderer.shadowMap.autoUpdate = false;
+        this.cubeCam.update(this.renderer, this.scene);
+        this.renderer.shadowMap.autoUpdate = shadows;
+        car.visible = true;
+        this.cubeTarget.texture.needsPMREMUpdate = true;
       }
 
       setupParticles() {
@@ -1290,6 +1321,8 @@
 
       updateCars(race, dt) {
         const p = race.player;
+        if (p.gear > this.lastGear && p.throttle > 0.5 && race.state === 'racing') this.playerCar.pop();
+        this.lastGear = p.gear;
         this.poseCar(this.playerCar, p, dt, { steer: p.steer, nitro: p.nitroActive ? 1 : 0 });
         race.cars.forEach((car, i) => {
           const model = this.rivalCars[i];
@@ -1526,6 +1559,7 @@
           this.moon.lookAt(cp);
         }
         if (this.current.waterNormal) this.current.waterNormal.offset.set(this.time * 0.6, this.time * 0.35);
+        this.updateReflections();
 
         const p = race.player;
         const sp = p.speed / C.maxSpeed;

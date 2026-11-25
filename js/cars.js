@@ -29,6 +29,7 @@
       tyreR: 0.305,
       // z, half-width, bottom, shoulder crease, fender crest, hood dip, crown
       body: [
+        [-2.33, 0.46, 0.25, 0.3, 0.34, 0.0, 0.0],
         [-2.27, 0.66, 0.22, 0.34, 0.4, 0.0, 0.0],
         [-2.15, 0.88, 0.15, 0.4, 0.5, 0.03, 0.01],
         [-1.85, 0.96, 0.12, 0.5, 0.71, 0.12, 0.015],
@@ -66,7 +67,7 @@
       plate: { rear: 0.5, front: 0 },
       mirrorZ: -0.6,
       hoodCam: [0.98, -1.3],
-      interior: { dashZ: -0.62, seatZ: 0.32, seatY: 0.42 },
+      interior: { dashZ: -0.62, seatZ: 0.12, seatY: 0.38 },
     },
     gt: {
       name: 'Front-engine GT',
@@ -78,6 +79,7 @@
       tyreF: 0.255,
       tyreR: 0.295,
       body: [
+        [-2.36, 0.52, 0.27, 0.36, 0.42, 0.0, 0.0],
         [-2.3, 0.68, 0.24, 0.4, 0.48, 0.0, 0.0],
         [-2.18, 0.88, 0.17, 0.47, 0.58, 0.02, 0.01],
         [-1.85, 0.95, 0.14, 0.55, 0.73, 0.08, 0.015],
@@ -111,7 +113,7 @@
       plate: { rear: 0.5, front: 0.32 },
       mirrorZ: -0.25,
       hoodCam: [1.04, -0.85],
-      interior: { dashZ: -0.2, seatZ: 0.72, seatY: 0.46 },
+      interior: { dashZ: -0.22, seatZ: 0.4, seatY: 0.46 },
     },
     muscle: {
       name: 'Muscle coupe',
@@ -123,6 +125,7 @@
       tyreF: 0.265,
       tyreR: 0.31,
       body: [
+        [-2.37, 0.66, 0.3, 0.48, 0.56, 0.0, 0.0],
         [-2.32, 0.8, 0.28, 0.52, 0.6, 0.0, 0.0],
         [-2.22, 0.92, 0.2, 0.56, 0.66, 0.0, 0.02],
         [-1.85, 0.96, 0.16, 0.62, 0.77, 0.04, 0.05],
@@ -156,7 +159,7 @@
       plate: { rear: 0.48, front: 0.36 },
       mirrorZ: -0.32,
       hoodCam: [1.08, -1.0],
-      interior: { dashZ: -0.28, seatZ: 0.55, seatY: 0.48 },
+      interior: { dashZ: -0.4, seatZ: 0.24, seatY: 0.48 },
     },
   };
 
@@ -396,6 +399,43 @@
         wing = place(new THREE.BoxGeometry(1.5, 0.05, 0.14), { y: 0.9, z: z1 - 0.12, rx: 0.25 });
       }
 
+      // Aero: carbon splitter, side skirts and diffuser fins.
+      const [, hwMid, ySill] = keyedRow(st.body, (st.axleF + st.axleR) / 2);
+      const ySplit = keyedRow(st.body, z0 + 0.27)[2] - 0.01;
+      const yFins = keyedRow(st.body, z1 - 0.16)[2];
+      const skirtLen = st.axleR - st.axleF - 2 * (st.wheelR + 0.12);
+      const aero = merge([
+        place(new THREE.BoxGeometry(1.36, 0.016, 0.22), { y: ySplit, z: z0 + 0.27 }),
+        ...[-1, 1].map((sx) => place(new THREE.BoxGeometry(0.045, 0.06, skirtLen), { x: sx * (hwMid * 0.965), y: ySill + 0.02, z: (st.axleF + st.axleR) / 2 })),
+        ...[-0.42, -0.21, 0, 0.21, 0.42].map((x) => place(new THREE.BoxGeometry(0.012, 0.07, 0.3), { x, y: yFins + 0.015, z: z1 - 0.17 })),
+      ]);
+
+      // A driver in a race suit and helmet, hands on the wheel (left-hand drive).
+      const dx = -0.36;
+      const sy = it.seatY;
+      const shoulder = [sy + 0.4, it.seatZ - 0.1];
+      const hands = [sy + 0.28, it.dashZ + 0.32];
+      const armDy = hands[0] - shoulder[0];
+      const armDz = hands[1] - shoulder[1];
+      const armLen = Math.hypot(armDy, armDz);
+      const head = { x: dx, y: sy + 0.55, z: it.seatZ - 0.04 };
+      const driver = {
+        suit: merge([
+          place(new THREE.BoxGeometry(0.4, 0.44, 0.22), { x: dx, y: sy + 0.22, z: it.seatZ - 0.08, rx: -0.2 }),
+          ...[-1, 1].map((sx) => place(new THREE.CylinderGeometry(0.042, 0.036, armLen, 8), { x: dx + sx * 0.16, y: (shoulder[0] + hands[0]) / 2, z: (shoulder[1] + hands[1]) / 2, rx: Math.atan2(armDz, armDy) })),
+        ]),
+        helmet: place(new THREE.SphereGeometry(0.125, 20, 14), head),
+        visor: place(new THREE.SphereGeometry(0.128, 20, 8, Math.PI * 1.18, Math.PI * 0.64, Math.PI * 0.36, Math.PI * 0.22), head),
+      };
+
+      // Night: the pool of light the headlights throw on the road ahead.
+      const beams = place(new THREE.PlaneGeometry(3.6, 10), { rx: -Math.PI / 2, y: 0.035, z: st.hl.zMax - 5.2 });
+
+      // Soft contact shadows where the tyres meet the road.
+      const contact = merge([[st.axleF, st.trackF, st.tyreF], [st.axleR, st.trackR, st.tyreR]].flatMap(([axle, track, tw]) =>
+        [-1, 1].map((sx) => place(new THREE.PlaneGeometry(tw + 0.12, 0.6), { rx: -Math.PI / 2, x: sx * track, y: 0.02, z: axle })),
+      ));
+
       const plates = [];
       if (st.plate.rear) plates.push(place(new THREE.PlaneGeometry(0.52, 0.12), { y: st.plate.rear, z: z1 + 0.012 }));
       if (st.plate.front) plates.push(place(new THREE.PlaneGeometry(0.52, 0.12), { y: st.plate.front, z: z0 - 0.012, ry: Math.PI }));
@@ -411,6 +451,10 @@
         arms,
         wing,
         plates: plates.length ? merge(plates) : null,
+        aero,
+        driver,
+        beams,
+        contact,
         shadow: place(new THREE.PlaneGeometry(2.5, 5.2), { rx: -Math.PI / 2, y: 0.025 }),
         flame: place(new THREE.ConeGeometry(0.055, 0.5, 12, 1, true), { rx: Math.PI / 2, z: 0.25 }),
       };
@@ -422,53 +466,284 @@
 
     const wheelCache = new Map();
 
+    /** Bend an extruded spoke so the hub sits deeper than the rim (a concave dish). */
+    function dish(geo, rimR, depth) {
+      const pos = geo.getAttribute('position');
+      for (let i = 0; i < pos.count; i++) {
+        const r = Math.hypot(pos.getY(i), pos.getZ(i));
+        pos.setX(i, pos.getX(i) - depth * (1 - Math.min(1, r / rimR)));
+      }
+      geo.computeVertexNormals();
+      return geo;
+    }
+
     function wheelGeometry(R, W, detail) {
       const key = `${R}:${W}:${detail}`;
       if (wheelCache.has(key)) return wheelCache.get(key);
-      const seg = detail === 'high' ? 40 : 24;
+      const hi = detail === 'high';
+      const seg = hi ? 48 : 28;
       const h = W / 2;
-      const rimR = R * 0.71;
-      const profile = [
-        [rimR, -h + 0.012],
-        [R * 0.82, -h - 0.004],
-        [R * 0.94, -h + 0.002],
-        [R * 0.99, -h + 0.025],
-        [R, -h + 0.055],
-        [R, h - 0.055],
-        [R * 0.99, h - 0.025],
-        [R * 0.94, h - 0.002],
-        [R * 0.82, h + 0.004],
-        [rimR, h - 0.012],
-      ].map(([r, y]) => new THREE.Vector2(r, y));
-      const tyre = new THREE.LatheGeometry(profile, seg);
-      tyre.rotateZ(-Math.PI / 2); // axle along x, outer face towards +x
+      const rimR = R * 0.72;
 
-      const face = h - 0.02;
+      // Tyre: lathed section with rounded shoulders. v runs inner bead → tread → outer bead.
+      const profile = [
+        [rimR, -h + 0.014, 0.0],
+        [R * 0.8, -h - 0.004, 0.12],
+        [R * 0.92, -h + 0.0, 0.22],
+        [R * 0.975, -h + 0.016, 0.3],
+        [R, -h + 0.05, 0.36],
+        [R, h - 0.05, 0.64],
+        [R * 0.975, h - 0.016, 0.7],
+        [R * 0.92, h - 0.0, 0.78],
+        [R * 0.8, h + 0.004, 0.88],
+        [rimR, h - 0.014, 1.0],
+      ];
+      const tyre = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+      const tuv = tyre.getAttribute('uv');
+      for (let i = 0; i < tuv.count; i++) tuv.setY(i, profile[i % profile.length][2]);
+      tyre.rotateZ(-Math.PI / 2); // axle along x, outer sidewall towards +x
+
+      // Rim: five twin spokes, machined with bevelled edges and dished towards the hub.
+      const face = h - 0.018;
+      const arm = new THREE.Shape();
+      const r0 = 0.065;
+      const r1 = rimR - 0.012;
+      arm.moveTo(r0, -0.018);
+      arm.lineTo(r1, -0.011);
+      arm.lineTo(r1, 0.011);
+      arm.lineTo(r0, 0.018);
+      arm.closePath();
       const spokes = [];
       for (let i = 0; i < 10; i++) {
-        const a = (Math.floor(i / 2) / 5) * Math.PI * 2 + (i % 2 ? 0.13 : -0.13);
-        const len = rimR - 0.07;
-        const mid = 0.07 + len / 2;
-        spokes.push(place(new THREE.BoxGeometry(0.022, len, 0.03), { x: face - 0.035, y: Math.cos(a) * mid, z: Math.sin(a) * mid, rx: a, rz: -0.12 }));
+        const a = (Math.floor(i / 2) / 5) * Math.PI * 2 + (i % 2 ? 0.16 : -0.16);
+        const g = new THREE.ExtrudeGeometry(arm, { depth: 0.026, bevelEnabled: true, bevelThickness: 0.005, bevelSize: 0.004, bevelSegments: hi ? 2 : 1, curveSegments: 1 });
+        g.rotateY(-Math.PI / 2); // radial → +z, thickness → -x
+        g.rotateX(a - Math.PI / 2); // radial → (0, cos a, sin a)
+        g.translate(face, 0, 0);
+        spokes.push(dish(g, rimR, 0.04).toNonIndexed());
       }
+      const lug = (k) => {
+        const a = (k / 5) * Math.PI * 2 + Math.PI / 5;
+        return place(new THREE.CylinderGeometry(0.0115, 0.0115, 0.03, 6), { x: face - 0.035, y: Math.cos(a) * 0.046, z: Math.sin(a) * 0.046, rz: Math.PI / 2 });
+      };
       const rim = merge([
         ...spokes,
-        place(new THREE.TorusGeometry(rimR - 0.008, 0.013, 8, seg), { x: face, ry: Math.PI / 2 }),
-        place(new THREE.CylinderGeometry(0.06, 0.07, 0.05, 16), { x: face - 0.04, rz: Math.PI / 2 }),
-        ...[0, 1, 2, 3, 4].map((k) => {
-          const a = (k / 5) * Math.PI * 2 + Math.PI / 5;
-          return place(new THREE.CylinderGeometry(0.011, 0.011, 0.03, 8), { x: face - 0.01, y: Math.cos(a) * 0.045, z: Math.sin(a) * 0.045, rz: Math.PI / 2 });
-        }),
+        place(new THREE.TorusGeometry(rimR - 0.006, 0.014, 10, seg), { x: face, ry: Math.PI / 2 }),
+        place(new THREE.CylinderGeometry(0.068, 0.078, 0.045, 24), { x: face - 0.05, rz: Math.PI / 2 }),
+        ...[0, 1, 2, 3, 4].map(lug),
       ]);
+      const cap = place(new THREE.CircleGeometry(0.03, 20), { x: face - 0.021, ry: Math.PI / 2 });
       const barrel = merge([
         place(new THREE.CylinderGeometry(rimR, rimR, W - 0.03, seg, 1, true), { rz: Math.PI / 2 }),
         place(new THREE.CircleGeometry(rimR, seg), { x: -h + 0.05, ry: Math.PI / 2 }),
       ]);
-      const disc = place(new THREE.CylinderGeometry(R * 0.6, R * 0.6, 0.028, seg), { x: face - 0.12, rz: Math.PI / 2 });
-      const caliper = place(new THREE.BoxGeometry(0.06, 0.13, 0.16), { x: face - 0.09, y: R * 0.43, z: R * 0.2, rx: 0.5 });
-      const out = { tyre, rim, barrel, disc, caliper };
+      const disc = place(new THREE.CylinderGeometry(R * 0.6, R * 0.6, 0.03, seg), { x: face - 0.13, rz: Math.PI / 2 });
+
+      // Calliper: a rounded block hugging the top-rear of the disc.
+      const cal = new THREE.Shape();
+      const cw = 0.17;
+      const ch = 0.075;
+      const cr = 0.025;
+      cal.moveTo(-cw / 2 + cr, -ch / 2);
+      cal.lineTo(cw / 2 - cr, -ch / 2);
+      cal.quadraticCurveTo(cw / 2, -ch / 2, cw / 2, -ch / 2 + cr);
+      cal.lineTo(cw / 2, ch / 2 - cr);
+      cal.quadraticCurveTo(cw / 2, ch / 2, cw / 2 - cr, ch / 2);
+      cal.lineTo(-cw / 2 + cr, ch / 2);
+      cal.quadraticCurveTo(-cw / 2, ch / 2, -cw / 2, ch / 2 - cr);
+      cal.lineTo(-cw / 2, -ch / 2 + cr);
+      cal.quadraticCurveTo(-cw / 2, -ch / 2, -cw / 2 + cr, -ch / 2);
+      const caliper = new THREE.ExtrudeGeometry(cal, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 2, curveSegments: 4 });
+      caliper.rotateY(-Math.PI / 2); // block lies in the wheel plane, thickness along x
+      const ca = 0.62; // radians back from the top
+      caliper.rotateX(ca); // follow the disc's edge
+      caliper.translate(face - 0.075, Math.cos(ca) * R * 0.5, Math.sin(ca) * R * 0.5);
+
+      const blur = place(new THREE.CircleGeometry(rimR - 0.004, seg), { x: face + 0.008, ry: Math.PI / 2 });
+      const out = { tyre, rim, cap, barrel, disc, caliper: caliper.toNonIndexed(), blur };
       wheelCache.set(key, out);
       return out;
+    }
+
+    /* Wheel textures ---------------------------------------------------- */
+
+    /** Height field → tangent-space normal map canvas. */
+    function heightToNormal(hgt, W, H, strength) {
+      const c = document.createElement('canvas');
+      c.width = W;
+      c.height = H;
+      const g = c.getContext('2d');
+      const img = g.createImageData(W, H);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const l = hgt[y * W + ((x - 1 + W) % W)];
+          const r = hgt[y * W + ((x + 1) % W)];
+          const u = hgt[Math.max(0, y - 1) * W + x];
+          const d = hgt[Math.min(H - 1, y + 1) * W + x];
+          const nx = (l - r) * strength;
+          const ny = (d - u) * strength;
+          const L = Math.hypot(nx, ny, 1);
+          const i = (y * W + x) * 4;
+          img.data[i] = (nx / L * 0.5 + 0.5) * 255;
+          img.data[i + 1] = (ny / L * 0.5 + 0.5) * 255;
+          img.data[i + 2] = (1 / L * 0.5 + 0.5) * 255;
+          img.data[i + 3] = 255;
+        }
+      }
+      g.putImageData(img, 0, 0);
+      return c;
+    }
+
+    function canvasTexture(c, srgb, repeat) {
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      if (repeat) t.wrapS = THREE.RepeatWrapping;
+      t.anisotropy = 4;
+      return t;
+    }
+
+    /** Tread grooves and sidewall lettering (u around the tyre, v across it). */
+    function tyreTextures() {
+      return shared('tyre-tex', () => {
+        const W = 1024;
+        const H = 256;
+        const hc = document.createElement('canvas');
+        hc.width = W;
+        hc.height = H;
+        const g = hc.getContext('2d');
+        g.fillStyle = '#808080';
+        g.fillRect(0, 0, W, H);
+        const vy = (v) => (1 - v) * H; // canvas row for a v coordinate (textures are flipped)
+        // circumferential grooves
+        g.fillStyle = '#202020';
+        for (const v of [0.43, 0.5, 0.57]) g.fillRect(0, vy(v) - 3, W, 6);
+        // shoulder sipes
+        g.strokeStyle = '#2a2a2a';
+        g.lineWidth = 3;
+        for (let i = 0; i < 96; i++) {
+          const x = (i / 96) * W;
+          for (const [a, b] of [[0.37, 0.415], [0.585, 0.63]]) {
+            g.beginPath();
+            g.moveTo(x, vy(a));
+            g.lineTo(x + 7, vy(b));
+            g.stroke();
+          }
+        }
+        // Raised lettering on the outer sidewall, twice around, tops towards the
+        // tread. Laid out from measured widths so it never overlaps.
+        g.fillStyle = '#c8c8c8';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        const words = ['SUNDOWN', 'SPORT RS', '255/35 ZR20'];
+        let size = 30;
+        const fontAt = (px) => `700 ${px}px "Saira Condensed", "Arial Narrow", sans-serif`;
+        const widthAt = (px) => {
+          g.font = fontAt(px);
+          return words.reduce((sum, w) => sum + g.measureText(w).width, 0);
+        };
+        while (widthAt(size) > W * 0.36 && size > 14) size -= 2;
+        g.font = fontAt(size);
+        const gap = (W / 2 - widthAt(size)) / words.length;
+        for (const half of [0, W / 2]) {
+          let x = half + gap / 2;
+          for (const w of words) {
+            const ww = g.measureText(w).width;
+            g.save();
+            g.translate(x + ww / 2, vy(0.86));
+            g.scale(-1, -1);
+            g.fillText(w, 0, 0);
+            g.restore();
+            x += ww + gap;
+          }
+        }
+        const hd = g.getImageData(0, 0, W, H).data;
+        const hgt = new Float32Array(W * H);
+        for (let i = 0; i < W * H; i++) hgt[i] = hd[i * 4] / 255;
+        // colour: rubber, letters a shade lighter, tread a touch darker
+        const cc = document.createElement('canvas');
+        cc.width = W;
+        cc.height = H;
+        const cg = cc.getContext('2d');
+        const ci = cg.createImageData(W, H);
+        const rnd = SC.util.rng(17);
+        for (let y = 0; y < H; y++) {
+          const v = 1 - y / H;
+          const tread = v > 0.36 && v < 0.64;
+          for (let x = 0; x < W; x++) {
+            const i = y * W + x;
+            const lift = hgt[i] > 0.6 ? 18 : 0;
+            const val = (tread ? 22 : 27) + lift + (rnd() - 0.5) * 4 - (hgt[i] < 0.3 ? 10 : 0);
+            ci.data[i * 4] = ci.data[i * 4 + 1] = ci.data[i * 4 + 2] = Math.max(0, val);
+            ci.data[i * 4 + 3] = 255;
+          }
+        }
+        cg.putImageData(ci, 0, 0);
+        return { map: canvasTexture(cc, true, true), normalMap: canvasTexture(heightToNormal(hgt, W, H, 2.5), false, true) };
+      });
+    }
+
+    /** Cross-drilled brake disc with a dark hat. */
+    function discTexture() {
+      return shared('disc-tex', () => {
+        const S = 256;
+        const c = document.createElement('canvas');
+        c.width = c.height = S;
+        const g = c.getContext('2d');
+        const m = S / 2;
+        g.fillStyle = '#3b3c40';
+        g.fillRect(0, 0, S, S);
+        const ring = g.createRadialGradient(m, m, m * 0.45, m, m, m);
+        ring.addColorStop(0, '#8d8f94');
+        ring.addColorStop(0.5, '#a3a5aa');
+        ring.addColorStop(1, '#7d7f84');
+        g.fillStyle = ring;
+        g.beginPath();
+        g.arc(m, m, m - 1, 0, Math.PI * 2);
+        g.fill();
+        g.strokeStyle = 'rgba(40,40,44,0.25)';
+        for (let r = m * 0.5; r < m; r += 3) {
+          g.beginPath();
+          g.arc(m, m, r, 0, Math.PI * 2);
+          g.stroke();
+        }
+        g.fillStyle = '#18191b';
+        for (let k = 0; k < 3; k++) {
+          const rr = m * (0.6 + k * 0.12);
+          for (let i = 0; i < 18; i++) {
+            const a = (i / 18) * Math.PI * 2 + k * 0.12;
+            g.beginPath();
+            g.arc(m + Math.cos(a) * rr, m + Math.sin(a) * rr, 3, 0, Math.PI * 2);
+            g.fill();
+          }
+        }
+        g.fillStyle = '#2b2c30';
+        g.beginPath();
+        g.arc(m, m, m * 0.45, 0, Math.PI * 2);
+        g.fill();
+        return canvasTexture(c, true, false);
+      });
+    }
+
+    /** What a spinning rim looks like on camera: spokes smeared into rings. */
+    function blurTexture() {
+      return shared('blur-tex', () => {
+        const S = 256;
+        const c = document.createElement('canvas');
+        c.width = c.height = S;
+        const g = c.getContext('2d');
+        const m = S / 2;
+        const gr = g.createRadialGradient(m, m, 0, m, m, m);
+        gr.addColorStop(0, 'rgba(120,120,120,0.95)');
+        gr.addColorStop(0.18, 'rgba(200,200,200,0.95)');
+        gr.addColorStop(0.3, 'rgba(150,150,150,0.85)');
+        gr.addColorStop(0.55, 'rgba(110,110,110,0.75)');
+        gr.addColorStop(0.9, 'rgba(160,160,160,0.8)');
+        gr.addColorStop(0.97, 'rgba(235,235,235,0.95)');
+        gr.addColorStop(1, 'rgba(235,235,235,0)');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, S, S);
+        return canvasTexture(c, true, false);
+      });
     }
 
     /* Paint shader ------------------------------------------------------ */
@@ -500,7 +775,7 @@
     }
 
     const BODY_DECL = `
-      uniform vec4 uHL, uHL2, uTL, uTL2, uGR, uDoor, uHood, uVent, uMisc, uHandle;
+      uniform vec4 uHL, uHL2, uTL, uTL2, uGR, uDoor, uHood, uVent, uMisc, uHandle, uEnds;
       uniform vec3 uLights, uStripe;
     `;
 
@@ -562,6 +837,17 @@
       roughnessFactor = mix(roughnessFactor, 0.12, tail);
       metalnessFactor = mix(metalnessFactor, 0.0, tail);
 
+      // chrome badges front and rear, amber side markers at the front corners
+      float badgeF = frontF * (1.0 - smoothstep(0.9, 1.1, length(vec2(cp.x / 0.06, (cp.y - uGR.z - 0.045) / 0.026))));
+      float badgeR = rearF * step(uTL.w, cp.z) * (1.0 - smoothstep(0.9, 1.1, length(vec2(cp.x / 0.07, (cp.y - uTL.x + 0.06) / 0.024))));
+      float badge = clamp(badgeF + badgeR, 0.0, 1.0);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75), badge);
+      roughnessFactor = mix(roughnessFactor, 0.12, badge);
+      metalnessFactor = mix(metalnessFactor, 1.0, badge);
+      float marker = sideF * aaBand(cp.z, uEnds.x + 0.16, uEnds.x + 0.27) * aaBand(cp.y, uHL.z - 0.03, uHL.z + 0.0);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.6, 0.25, 0.02), marker);
+      roughnessFactor = mix(roughnessFactor, 0.1, marker);
+
       // grime and occlusion low on the body
       diffuseColor.rgb *= mix(0.42, 1.0, smoothstep(uMisc.x, uMisc.x + 0.24, cp.y));
       float coat = 1.0 - max(trim, 0.0);
@@ -570,6 +856,7 @@
     const BODY_EMISSIVE = `
       totalEmissiveRadiance += vec3(0.85, 0.92, 1.0) * (drl * uLights.x * 1.4 + proj * uLights.x * uLights.z);
       totalEmissiveRadiance += vec3(1.0, 0.035, 0.025) * tail * uLights.y * led;
+      totalEmissiveRadiance += vec3(1.0, 0.45, 0.05) * marker * (0.2 + uLights.z * 0.8);
     `;
 
     const CLEARCOAT_MASK = `
@@ -581,6 +868,7 @@
     const CABIN_DECL = `
       uniform vec4 uWin, uWin2, uMisc;
       uniform vec3 uStripe;
+      uniform float uBrake;
     `;
 
     const CABIN_SURFACE = `
@@ -608,6 +896,19 @@
       roughnessFactor = mix(roughnessFactor, 0.03, glass);
       metalnessFactor = mix(metalnessFactor, 0.0, glass);
       diffuseColor.a = mix(diffuseColor.a, 0.86, glass);
+      // parked wiper blades at the foot of the windscreen
+      float wiper = windscreen * aaBand(cp.y, belt + 0.012, belt + 0.024) * (aaBand(cp.x, -0.72, -0.06) + aaBand(cp.x, 0.04, 0.66));
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.015), wiper);
+      diffuseColor.a = mix(diffuseColor.a, 1.0, wiper);
+      roughnessFactor = mix(roughnessFactor, 0.5, wiper);
+      // third brake light along the top of the rear window
+      float third = rearGlass * aaBand(cp.z, uWin.y + 0.018, uWin.y + 0.04) * aaBand(abs(cp.x), -1.0, 0.24);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.18, 0.005, 0.005), third);
+      diffuseColor.a = mix(diffuseColor.a, 1.0, third);
+    `;
+
+    const CABIN_EMISSIVE = `
+      totalEmissiveRadiance += vec3(1.0, 0.03, 0.02) * third * (0.6 + uBrake * 5.0);
     `;
 
     const v4 = (a, b, c, d) => new THREE.Vector4(a, b, c, d);
@@ -624,6 +925,7 @@
         uVent: { value: v4(st.vent.z0, st.vent.z1, st.vent.y0, st.vent.y1) },
         uMisc: { value: v4(st.body[4][2], stripes ? 1 : 0, st.louvres, st.scoop) },
         uHandle: { value: v4(st.handle.z, st.handle.y, 0, 0) },
+        uEnds: { value: v4(st.body[0][0], st.body[st.body.length - 1][0], 0, 0) },
         uLights: { value: new THREE.Vector3(1.6, 1.2, 0.25) },
         uStripe: { value: new THREE.Color(0xf4f2ec) },
       };
@@ -636,6 +938,7 @@
         uWin2: { value: v4(w.zF, w.belt[0], w.belt[1], w.roofBlack) },
         uMisc: { value: v4(0, stripes ? 1 : 0, 0, 0) },
         uStripe: { value: new THREE.Color(0xf4f2ec) },
+        uBrake: { value: 0 },
       };
     }
 
@@ -664,6 +967,9 @@
         return t;
       });
     }
+
+    /** Render layer for car details that the main camera sees but reflections and shadows skip. */
+    const DETAIL_LAYER = 1;
 
     const RIMS = {
       silver: [0xc9cdd3, 0.22, 1],
@@ -702,7 +1008,8 @@
         inject(this.paint, this.bodyU, 'car-body', BODY_DECL, BODY_SURFACE, BODY_EMISSIVE, CLEARCOAT_MASK);
 
         this.cabinMat = new THREE.MeshPhysicalMaterial({ color: this.paint.color, metalness: metallic, roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.035, transparent: true });
-        inject(this.cabinMat, cabinUniforms(st, opts.stripes), 'car-cabin', CABIN_DECL, CABIN_SURFACE, '', '');
+        this.cabinU = cabinUniforms(st, opts.stripes);
+        inject(this.cabinMat, this.cabinU, 'car-cabin', CABIN_DECL, CABIN_SURFACE, CABIN_EMISSIVE, '');
 
         const mirrorMat = new THREE.MeshPhysicalMaterial({ color: this.paint.color, metalness: metallic, roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.04 });
         this.paints = [this.paint, this.cabinMat, mirrorMat];
@@ -716,11 +1023,14 @@
         const carbon = shared('car-carbon', () => new THREE.MeshPhysicalMaterial({ color: 0x141518, roughness: 0.35, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05 }));
         const plateMat = shared('car-plate', () => new THREE.MeshStandardMaterial({ map: tex.plate(), roughness: 0.45 }));
 
+        // Small details (interior, driver, brakes, plates…) neither cast shadows nor
+        // appear in the reflection capture, so they live on their own layer.
         const add = (geo, mat, cast = true, parent = this.body) => {
           if (!geo) return null;
           const m = new THREE.Mesh(geo, mat);
           m.castShadow = cast;
           m.receiveShadow = true;
+          if (!cast) m.layers.set(DETAIL_LAYER);
           parent.add(m);
           return m;
         };
@@ -734,13 +1044,47 @@
         add(g.bores, soot, false);
         add(g.plates, plateMat, false);
         if (g.wing && opts.wing !== false) add(g.wing, id === 'gt' ? carbon : mirrorMat);
+        add(g.aero, carbon);
+
+        const suit = new THREE.MeshStandardMaterial({ color: opts.suit != null ? opts.suit : 0x24262b, roughness: 0.85 });
+        const helmet = new THREE.MeshPhysicalMaterial({ color: opts.helmet != null ? opts.helmet : 0xf1f1ee, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.05 });
+        const visor = shared('car-visor', () => new THREE.MeshPhysicalMaterial({ color: 0x07080b, roughness: 0.04, metalness: 0.7, clearcoat: 1 }));
+        add(g.driver.suit, suit, false);
+        add(g.driver.helmet, helmet, false);
+        add(g.driver.visor, visor, false);
+
+        const beamMat = shared('car-beam', () => new THREE.MeshBasicMaterial({ map: tex.glow(), color: new THREE.Color(0.5, 0.53, 0.58), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+        this.beams = add(g.beams, beamMat, false);
+        this.beams.renderOrder = 2;
+        this.beams.visible = false;
+
+        const contactMat = shared('car-contact', () => new THREE.MeshBasicMaterial({ map: tex.blob(), transparent: true, depthWrite: false, color: 0x000000, opacity: 0.95, polygonOffset: true, polygonOffsetFactor: -3 }));
+        const contact = new THREE.Mesh(g.contact, contactMat);
+        contact.renderOrder = 2;
+        contact.layers.set(DETAIL_LAYER);
+        this.root.add(contact);
 
         // Wheels: steer → (mirror for the left side) → spin.
         const [rimColor, rimRough, rimMetal] = RIMS[opts.rim] || RIMS.silver;
         const rimMat = new THREE.MeshStandardMaterial({ color: rimColor, roughness: rimRough, metalness: rimMetal });
-        const tyreMat = shared('car-tyre', () => new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.88 }));
+        const tyreMats = shared('car-tyres', () => {
+          const t = tyreTextures();
+          const make = (flip) => {
+            const map = t.map.clone();
+            const normalMap = t.normalMap.clone();
+            for (const tx of [map, normalMap]) {
+              tx.repeat.x = flip ? -1 : 1;
+              tx.needsUpdate = true;
+            }
+            return new THREE.MeshStandardMaterial({ map, normalMap, normalScale: new THREE.Vector2(0.8, 0.8), roughness: 0.86 });
+          };
+          // Left-hand wheels are mirror images, so their lettering is flipped back.
+          return { right: make(false), left: make(true) };
+        });
+        const capMat = shared('car-cap', () => new THREE.MeshPhysicalMaterial({ color: 0x0d0e10, roughness: 0.2, metalness: 0.5, clearcoat: 1 }));
+        this.blurMat = new THREE.MeshStandardMaterial({ color: rimColor, map: blurTexture(), transparent: true, opacity: 0, depthWrite: false, roughness: rimRough + 0.15, metalness: rimMetal });
         const barrelMat = shared('car-barrel', () => new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.5, metalness: 0.8, side: THREE.DoubleSide }));
-        const discMat = shared('car-disc', () => new THREE.MeshStandardMaterial({ color: 0x6e7074, roughness: 0.42, metalness: 1 }));
+        const discMat = shared('car-disc', () => new THREE.MeshStandardMaterial({ map: discTexture(), roughness: 0.45, metalness: 0.9 }));
         const caliperMat = new THREE.MeshStandardMaterial({ color: opts.caliper != null ? opts.caliper : CALIPERS[0], roughness: 0.35, metalness: 0.2 });
         this.wheels = [];
         for (const [axle, track, W, front] of [[st.axleF, st.trackF, st.tyreF, true], [st.axleR, st.trackR, st.tyreR, false]]) {
@@ -753,11 +1097,14 @@
             steer.add(mirror);
             const spin = new THREE.Group();
             mirror.add(spin);
-            add(wg.tyre, tyreMat, true, spin);
+            add(wg.tyre, side > 0 ? tyreMats.right : tyreMats.left, true, spin);
             add(wg.rim, rimMat, true, spin);
+            add(wg.cap, capMat, false, spin);
             add(wg.barrel, barrelMat, false, spin);
             add(wg.disc, discMat, false, spin);
             add(wg.caliper, caliperMat, false, mirror);
+            const blur = add(wg.blur, this.blurMat, false, mirror);
+            blur.renderOrder = 1;
             this.root.add(steer);
             this.wheels.push({ steer, spin, front, side });
           }
@@ -766,10 +1113,12 @@
         const shadowMat = shared('car-shadow', () => new THREE.MeshBasicMaterial({ map: tex.blob(), transparent: true, depthWrite: false, color: 0x000000, opacity: 0.85, polygonOffset: true, polygonOffsetFactor: -2 }));
         const sh = new THREE.Mesh(g.shadow, shadowMat);
         sh.renderOrder = 1;
+        sh.layers.set(DETAIL_LAYER);
         this.root.add(sh);
 
         if (opts.flames) {
           const flameMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.18, 0.42, 1.6), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+          this.flameMat = flameMat;
           const z1 = st.body[st.body.length - 1][0];
           this.flames = st.exhausts.map(([x, y]) => {
             const f = new THREE.Mesh(g.flame, flameMat);
@@ -787,6 +1136,24 @@
         this.hoodCam = st.hoodCam;
         this.spinAngle = 0;
         this.night = false;
+        this.time = 0;
+        this.phase = Math.random() * 10;
+        this.popTime = 0;
+        this.envMats = [...this.paints, rimMat, this.blurMat, helmet, visor, chrome, carbon, capMat, discMat, barrelMat];
+      }
+
+      /** Use a (dynamic) environment map for reflections on paint, glass and metal. */
+      setEnv(texture) {
+        for (const m of this.envMats) {
+          if (m.envMap === texture) continue;
+          m.envMap = texture;
+          m.needsUpdate = true;
+        }
+      }
+
+      /** A short flame from the exhaust, as on an upshift. */
+      pop() {
+        this.popTime = 0.09;
       }
 
       setColor(hex) {
@@ -796,6 +1163,7 @@
       setNight(night) {
         this.night = night;
         this.bodyU.uLights.value.set(night ? 2.6 : 1.6, night ? 2.0 : 1.2, night ? 0.5 : 0.25);
+        this.beams.visible = night;
       }
 
       /** speed m/s, steer radians, brake/nitro flags. */
@@ -807,15 +1175,32 @@
         }
         const base = this.night ? 2.0 : 1.2;
         this.bodyU.uLights.value.y = brake ? base * 4 : base;
+        this.cabinU.uBrake.value = brake ? 1 : 0;
+
+        // Spokes smear into a disc at speed, as they do on camera.
+        const omega = speed / this.style.wheelR;
+        const t = Math.min(1, Math.max(0, (omega - 14) / 26));
+        this.blurMat.opacity = t * t * (3 - 2 * t) * 0.94;
+
+        // A little suspension movement from the road surface.
+        this.time += dt;
+        const ride = Math.min(1, speed / 25);
+        this.body.position.y = (Math.sin(this.time * 11.3 + this.phase) * 0.6 + Math.sin(this.time * 17.9 + this.phase * 2) * 0.4) * 0.0035 * ride;
+
         if (this.flames) {
+          this.popTime = Math.max(0, this.popTime - dt);
+          const pop = this.popTime > 0;
+          if (pop) this.flameMat.color.setRGB(2.2, 0.75, 0.15);
+          else this.flameMat.color.setRGB(0.18, 0.42, 1.6);
           for (const f of this.flames) {
-            f.visible = nitro > 0.05;
-            f.scale.set(1, 1, nitro * (0.8 + Math.random() * 0.5));
+            f.visible = nitro > 0.05 || pop;
+            const k = pop ? 0.55 : nitro;
+            f.scale.set(1, 1, k * (0.8 + Math.random() * 0.5));
           }
         }
       }
     }
 
-    SC.cars = { CarModel, STYLES, RIMS, CALIPERS, styleGeometry };
+    SC.cars = { CarModel, STYLES, RIMS, CALIPERS, styleGeometry, DETAIL_LAYER };
   });
 })();

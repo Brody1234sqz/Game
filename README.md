@@ -53,12 +53,27 @@ Each body is lofted from automotive cross-sections: flat sides with a shoulder c
 - door and hood shut lines, door handles and diffusers
 - grime low on the sills
 
-Paint is clearcoat over a metallic flake layer. The windows are separate tinted glass with black seals and painted pillars, and you can see seats, a dashboard and a steering wheel through them. Wheels are real geometry: rounded tyres, ten-spoke rims, brake discs, and callipers that steer with the wheel but don't spin. Brake lights flare when a car slows, the body rolls in corners and pitches under braking, and the headlights light the road at night.
+Further detail in the shader:
+- chrome badges, amber side markers, parked wiper blades and a third brake light
+
+Paint is clearcoat over a metallic flake layer. In Quality mode a cube camera rides with your car and re-captures its surroundings several times a second, so paint, glass, chrome and rims reflect the actual track: grandstands, palms, office windows, other cars. The windows are separate tinted glass with black seals and painted pillars. Through them you can see a helmeted driver with hands on the wheel, plus seats and a dashboard.
+
+Each car also has a carbon front splitter, side skirts and diffuser fins.
+
+The wheels are real geometry:
+- tyres with tread grooves and raised sidewall lettering
+- machined twin-spoke rims, dished towards the hub, with lug nuts and a centre cap
+- cross-drilled brake discs, and rounded callipers that steer with the wheel but don't spin
+- at speed the spokes smear into a blurred disc, the way they do on camera
+
+Brake lights flare when a car slows, the body rolls in corners, pitches under braking and moves a little on its suspension, the exhaust pops on upshifts, and soft contact shadows ground every tyre. At night the headlights throw a pool of light on the road ahead.
+
+Small parts (interior, driver, brakes, plates) live on their own render layer, so they're skipped by the reflection capture and the shadow pass and cost little.
 
 ### Graphics
 
-- **Quality** (the default on desktop) renders at up to 2× pixel density with 4× MSAA, 2048 px sun shadows, speed blur and full scenery density.
-- **Fast** (the default on phones and tablets) uses 1× density, 1024 px shadows and about half the background scenery.
+- **Quality** (the default on desktop) renders at up to 2× pixel density with 4× MSAA, 4096 px sun shadows, live car reflections, speed blur and full scenery density.
+- **Fast** (the default on phones and tablets) uses 1× density, 1024 px shadows, simpler car geometry, sky-only reflections and about half the background scenery.
 
 Both modes scale the render resolution up and down to hold the frame rate.
 

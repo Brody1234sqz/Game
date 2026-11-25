@@ -274,3 +274,15 @@ for (const [id, st] of Object.entries(SC.CAR_STYLES)) {
     assert.ok(st.win.zF < st.win.zB && st.win.zB < st.win.zC && st.win.zW < st.win.zR, 'window layout in order');
   });
 }
+
+for (const [id, st] of Object.entries(SC.CAR_STYLES)) {
+  test(`car style ${id}: the driver fits under the roof and shows through the side window`, () => {
+    const it = st.interior;
+    const headZ = it.seatZ - 0.04;
+    const helmetTop = it.seatY + 0.55 + 0.125;
+    const roofInside = SC.carProfiles.keyedRow(st.cabin, headZ)[4] - 0.05;
+    assert.ok(helmetTop < roofInside, `${id}: helmet ${helmetTop.toFixed(2)} m hits the roof at ${roofInside.toFixed(2)} m`);
+    assert.ok(headZ > st.win.zF + 0.1 && headZ < st.win.zB - 0.1, `${id}: driver's head hidden behind a pillar`);
+    assert.ok(it.dashZ < headZ, 'dashboard ahead of the driver');
+  });
+}
