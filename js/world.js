@@ -98,7 +98,7 @@
         water: false,
         rails: false,
         colors: { ground: 0x2a2830 },
-        road: { tint: 0xb4aebd, roughness: 0.5 },
+        road: { tint: 0xb4aebd, roughness: 0.62 },
         margin: 700,
       },
     };
@@ -325,35 +325,41 @@
       }
 
       setupCars() {
-        const stripes = document.createElement('canvas');
-        stripes.width = 256;
-        stripes.height = 8;
-        const g = stripes.getContext('2d');
-        g.fillStyle = SC.art.PLAYER_COLOR[0];
-        g.fillRect(0, 0, 256, 8);
-        g.fillStyle = '#f6f4ef';
-        g.fillRect(118, 0, 8, 8);
-        g.fillRect(130, 0, 8, 8);
-        const stripeTex = new THREE.CanvasTexture(stripes);
-        stripeTex.colorSpace = THREE.SRGBColorSpace;
-
-        this.playerCar = new M.CarModel(this.tex, 0xffffff, { flames: true });
-        this.playerCar.paint.map = stripeTex;
+        const detail = this.qualityName === 'quality' ? 'high' : 'low';
+        this.playerCar = new SC.cars.CarModel(this.tex, SC.art.PLAYER_COLOR[0], {
+          style: 'super',
+          detail,
+          metallic: 0.3,
+          stripes: true,
+          flames: true,
+          rim: 'gunmetal',
+          caliper: 0xe0a800,
+        });
         this.scene.add(this.playerCar.root);
 
-        this.headlights = [-0.6, 0.6].map((x) => {
+        this.headlights = this.playerCar.headlightSpots.map(([x, y, z]) => {
           const l = new THREE.SpotLight(0xeef3ff, 0, 90, 0.42, 0.45, 1.4);
-          l.position.set(x, 0.6, -2.1);
+          l.position.set(x, y, z);
           l.target.position.set(x * 2.5, 0, -40);
           l.visible = false;
           this.playerCar.root.add(l, l.target);
           return l;
         });
 
+        // A varied field: three body styles, wheel finishes and brake colours.
+        const styles = ['gt', 'muscle', 'super'];
+        const rims = ['silver', 'black', 'gunmetal', 'bronze'];
         this.rivalCars = [];
         for (let i = 0; i < C.rivals; i++) {
-          const color = SC.art.CAR_COLORS[i % SC.art.CAR_COLORS.length][0];
-          const car = new M.CarModel(this.tex, color, { spoiler: i % 3 !== 1 });
+          const ci = i % SC.art.CAR_COLORS.length;
+          const car = new SC.cars.CarModel(this.tex, SC.art.CAR_COLORS[ci][0], {
+            style: styles[i % styles.length],
+            detail,
+            metallic: SC.art.CAR_METALLIC[ci],
+            rim: rims[i % rims.length],
+            caliper: SC.cars.CALIPERS[(i * 7) % SC.cars.CALIPERS.length],
+            wing: i % 2 === 0,
+          });
           this.scene.add(car.root);
           this.rivalCars.push(car);
         }
@@ -465,9 +471,9 @@
         for (const l of this.lampLights) l.visible = night;
         for (const l of this.headlights) {
           l.visible = night;
-          l.intensity = night ? 110 : 0;
+          l.intensity = night ? 45 : 0;
         }
-        this.playerCar.head.emissiveIntensity = night ? 8 : 1.2;
+        for (const car of [this.playerCar, ...this.rivalCars]) car.setNight(night);
       }
 
       envFor(themeId, look) {
@@ -1290,7 +1296,9 @@
           if (!model) return;
           if (model.colorIndex !== car.color) {
             model.colorIndex = car.color;
-            model.setColor(SC.art.CAR_COLORS[car.color % SC.art.CAR_COLORS.length][0]);
+            const ci = car.color % SC.art.CAR_COLORS.length;
+            model.setColor(SC.art.CAR_COLORS[ci][0]);
+            model.paint.metalness = model.cabinMat.metalness = SC.art.CAR_METALLIC[ci];
           }
           this.poseCar(model, car, dt, {});
         });
@@ -1322,7 +1330,7 @@
           const dist = camera.position.distanceTo(this.v1);
           fov = U.clamp(THREE.MathUtils.radToDeg(2 * Math.atan(7.5 / dist)), 9, 58);
         } else if (mode === 'hood') {
-          this.v1.set(0, 1.12, -0.95);
+          this.v1.set(0, model.hoodCam[0], model.hoodCam[1]);
           model.root.localToWorld(this.v1);
           camera.position.copy(this.v1);
           this.v2.set(0, 0.85, -40);
@@ -1374,12 +1382,14 @@
         const segs = tw.track.segments;
         const n = segs.length;
         let best = null;
-        for (let attempt = 0; attempt < 8; attempt++) {
+        for (let attempt = 0; attempt < 12; attempt++) {
           const metres = 60 + r() * 70;
-          const side = r() < 0.5 ? -1 : 1;
           const latM = 7.2 + r() * 2.6;
           const z = p.z + metres / C.metersPerUnit;
           const i0 = Math.floor(z / C.segmentLength);
+          // On a bend, stand on the inside: the warning boards line the outside.
+          const curve = segs[((i0 % n) + n) % n].curve;
+          const side = Math.abs(curve) > 1.5 && attempt < 8 ? Math.sign(curve) : r() < 0.5 ? -1 : 1;
           let blocked = false;
           for (let k = -30; k <= 4 && !blocked; k++) {
             for (const sp of segs[(((i0 + k) % n) + n) % n].sprites) {

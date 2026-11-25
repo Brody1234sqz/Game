@@ -42,6 +42,19 @@ On the menu, Enter starts a race. The camera cycles between chase, close and hoo
 | Pine Ridge | 2.31 km | Alpine noon. Steep climbs, blind crests, two hairpins, forests below snowy peaks. |
 | Neon Night | 2.50 km | Midnight downtown. Lit office towers, neon signs and street lights that pool on the road. |
 
+### Cars
+
+There are three body styles: a mid-engine supercar (your car, in orange with white stripes), a front-engine GT and a muscle coupe. The rivals mix all three, with their own paint, wheel finishes, brake callipers and rear wings.
+
+Each body is lofted from automotive cross-sections: flat sides with a shoulder crease, fender crests over the wheels, a hood that sits between them, and flared, cut-out wheel arches with dark wells. A custom paint shader draws the fine detail per pixel in the car's own coordinates, so it follows the bodywork exactly:
+- LED headlight strips and projector lamps
+- taillight bars (segmented on the muscle car)
+- grilles with mesh, side intakes, engine-cover louvres and the muscle car's hood scoop
+- door and hood shut lines, door handles and diffusers
+- grime low on the sills
+
+Paint is clearcoat over a metallic flake layer. The windows are separate tinted glass with black seals and painted pillars, and you can see seats, a dashboard and a steering wheel through them. Wheels are real geometry: rounded tyres, ten-spoke rims, brake discs, and callipers that steer with the wheel but don't spin. Brake lights flare when a car slows, the body rolls in corners and pitches under braking, and the headlights light the road at night.
+
 ### Graphics
 
 - **Quality** (the default on desktop) renders at up to 2× pixel density with 4× MSAA, 2048 px sun shadows, speed blur and full scenery density.
@@ -49,7 +62,7 @@ On the menu, Enter starts a race. The camera cycles between chase, close and hoo
 
 Both modes scale the render resolution up and down to hold the frame rate.
 
-The look comes from physically based materials (clearcoat car paint, glass, chrome, asphalt with normal and roughness maps), a sky that scatters light by the sun's position and lights the scene with reflections, soft shadows from the sun, exponential fog, HDR bloom, ACES filmic tone mapping, and a colour grade, vignette and radial speed blur.
+The look comes from physically based materials (clearcoat car paint over metallic flake, tinted glass, chrome, asphalt with normal and roughness maps), a sky that scatters light by the sun's position and lights the scene with reflections, soft shadows from the sun, exponential fog, HDR bloom, ACES filmic tone mapping, and a colour grade, vignette and radial speed blur.
 
 ## Project layout
 
@@ -64,7 +77,8 @@ js/centerline.js  Turns a track's bends and hills into a closed 3D centreline in
 js/themes.js      Palettes per circuit
 js/art.js         2D artwork: billboard designs and menu thumbnails
 js/textures.js    Procedural PBR textures, plus the noise functions the terrain uses
-js/models.js      Procedural 3D models: the lofted sports car and all the scenery
+js/models.js      Procedural 3D scenery models and geometry helpers
+js/cars.js        The cars: body styles, lofted bodywork, paint and glass shaders, wheels
 js/world.js       WebGL world: road, terrain, sea, sky, lighting, cameras, post-processing
 js/hud.js         Heads-up display on a 2D overlay canvas
 js/audio.js       Web Audio engine, tyre, wind and effect sounds
@@ -73,7 +87,7 @@ js/main.js        App controller: screens, settings, records, loading, frame loo
 tests/            Headless Node tests for the simulation and the 3D geometry
 ```
 
-The simulation files (`util`, `config`, `tracks`, `race`, `centerline`) never touch the DOM or WebGL, so the tests can drive whole races in Node.
+The simulation files (`util`, `config`, `tracks`, `race`, `centerline`) and the car body profiles in `cars.js` never touch the DOM or WebGL, so the tests can drive whole races and check car geometry in Node.
 
 ### How the world is built
 
@@ -89,7 +103,7 @@ Each frame, the cars are posed from the simulation: position, heading, drift ang
 npm test           # node --test, Node 18 or newer
 ```
 
-The suite checks track integrity and closure, that no solid scenery stands on the tarmac, and the minimap outline. It drives full 3-lap races with the autopilot to check lap timing, results ordering and the finish. It also checks deterministic replays, difficulty, crashes and nitro. For the 3D centreline, it checks that the loop closes, never crosses itself, keeps grades drivable, and puts lateral offsets in metres.
+The suite checks track integrity and closure, that no solid scenery stands on the tarmac, and the minimap outline. It drives full 3-lap races with the autopilot to check lap timing, results ordering and the finish. It also checks deterministic replays, difficulty, crashes and nitro. For the 3D centreline, it checks that the loop closes, never crosses itself, keeps grades drivable, and puts lateral offsets in metres. For the cars, it checks that the bodywork clears the wheels and wheel wells, that the tyres fit inside the arches, and that the glasshouse ends are buried in the body (no flickering coplanar surfaces).
 
 ## Tuning
 

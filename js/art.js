@@ -66,17 +66,20 @@
   /* Cars                                                                */
   /* ------------------------------------------------------------------ */
 
+  // Real-world paint colours; the second value is a darker shade for 2D use.
   const CAR_COLORS = [
-    ['#e63946', '#8c1c26'],
-    ['#2a9df4', '#12508a'],
-    ['#f4c430', '#9a7610'],
-    ['#2ec4b6', '#127a70'],
-    ['#f2f2ec', '#9a9a92'],
-    ['#9b4dca', '#552372'],
-    ['#ff8c42', '#a24f1a'],
-    ['#4a4f73', '#1f2238'],
-    ['#7bd14b', '#3e7a1e'],
+    ['#a50f17', '#5c070c'], // rosso
+    ['#1b4d96', '#0c2a57'], // deep blue
+    ['#e5ad00', '#8a6a00'], // giallo
+    ['#0f553a', '#063020'], // racing green
+    ['#b9bdc3', '#7b8086'], // silver
+    ['#222327', '#0f1012'], // black
+    ['#e6e6e1', '#9a9a92'], // white
+    ['#d4500f', '#7a2606'], // orange
+    ['#4c2b7a', '#2e1645'], // violet
   ];
+  // How metallic each paint is (solid colours low, metallics high).
+  const CAR_METALLIC = [0.25, 0.75, 0.2, 0.55, 0.9, 0.8, 0.1, 0.3, 0.75];
   const PLAYER_COLOR = ['#ff5a2e', '#9e2a12'];
 
   function textFit(g, text, weight, size, maxW, italic = true) {
@@ -470,5 +473,5 @@
     });
   }
 
-  SC.art = { CAR_COLORS, PLAYER_COLOR, boardCanvas, thumbnail };
+  SC.art = { CAR_COLORS, CAR_METALLIC, PLAYER_COLOR, boardCanvas, thumbnail };
 })();

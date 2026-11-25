@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-for (const f of ['util', 'config', 'tracks', 'race', 'centerline']) require(path.join(__dirname, '..', 'js', f + '.js'));
+for (const f of ['util', 'config', 'tracks', 'race', 'centerline', 'cars']) require(path.join(__dirname, '..', 'js', f + '.js'));
 const SC = globalThis.SC;
 const U = SC.util;
 const C = SC.CONFIG;
@@ -220,3 +220,57 @@ test('centreline sampling puts lateral offsets in metres across the road', () =>
   const c = SC.centerline.sample(line, 12345 + tracks[0].length, 0, {});
   assert.ok(Math.hypot(c.x - a.x, c.z - a.z) < 1e-6);
 });
+
+/* ------------------------------------------------------------------ */
+/* Car bodies                                                          */
+/* ------------------------------------------------------------------ */
+
+/** Highest point of a right-half-and-left ring above lateral position x (right side). */
+function bodyTopAt(ringPts, x) {
+  let best = -Infinity;
+  for (let i = 0; i < ringPts.length - 1; i++) {
+    const [x0, y0] = ringPts[i];
+    const [x1, y1] = ringPts[i + 1];
+    if (x0 >= 0 && x1 >= 0 && x0 !== x1 && (x - x0) * (x - x1) <= 0) best = Math.max(best, y0 + ((y1 - y0) * (x - x0)) / (x1 - x0));
+  }
+  return best;
+}
+
+for (const [id, st] of Object.entries(SC.CAR_STYLES)) {
+  test(`car style ${id}: bodywork clears the wheels and wheel wells`, () => {
+    const P = SC.carProfiles;
+    const wellR = st.wheelR + 0.055 - 0.03;
+    for (const [axle, track, tyre] of [[st.axleF, st.trackF, st.tyreF], [st.axleR, st.trackR, st.tyreR]]) {
+      // the tyre fits inside the body's width with its arch flare
+      const ring = P.ring(P.subdivide(P.bodyHalf(st, axle), 5));
+      const maxX = Math.max(...ring.map(([x]) => x));
+      assert.ok(track + tyre / 2 <= maxX + 0.02, `${id} tyre sticks out at z=${axle}`);
+      for (const dz of [-0.2, -0.1, 0, 0.1, 0.2]) {
+        const r = P.ring(P.subdivide(P.bodyHalf(st, axle + dz), 5));
+        const wellTop = st.wheelR + Math.sqrt(Math.max(0, wellR * wellR - dz * dz));
+        for (let x = track - 0.19; x <= track + 0.07; x += 0.01) {
+          assert.ok(bodyTopAt(r, x) > wellTop, `${id}: well pokes through the bodywork at z=${(axle + dz).toFixed(2)}, x=${x.toFixed(2)}`);
+        }
+      }
+    }
+  });
+
+  test(`car style ${id}: glasshouse sits on the body and lights fit the bodywork`, () => {
+    const P = SC.carProfiles;
+    const z0 = st.body[0][0];
+    const z1 = st.body[st.body.length - 1][0];
+    const c0 = st.cabin[0][0];
+    const c1 = st.cabin[st.cabin.length - 1][0];
+    assert.ok(c0 > z0 && c1 < z1, 'cabin within the body length');
+    // both ends of the glasshouse start below the bodywork (no coplanar surfaces)
+    for (const z of [c0, c1]) {
+      const cab = P.cabinHalf(st, z);
+      const roof = cab[cab.length - 1][1];
+      const top = bodyTopAt(P.ring(P.subdivide(P.bodyHalf(st, z), 5)), 0.01);
+      assert.ok(roof < top - 0.01, `${id}: cabin end at z=${z} is not buried (roof ${roof.toFixed(3)} vs body ${top.toFixed(3)})`);
+    }
+    assert.ok(st.hl.x1 <= 1 && st.hl.y1 > st.hl.y0 && st.hl.zMax < st.axleF, 'headlights at the front');
+    assert.ok(st.tl.zMin > st.axleR && st.tl.barY[1] > st.tl.barY[0], 'tail lights at the back');
+    assert.ok(st.win.zF < st.win.zB && st.win.zB < st.win.zC && st.win.zW < st.win.zR, 'window layout in order');
+  });
+}
